@@ -29,9 +29,9 @@
  function choose(i,p){pair[i]=p;focus=p.id;target=i;refresh()}
  function slot(i){
   const p=pair[i],el=$('slot'+i),forms=d.pokemon.filter(x=>x.dex===p.dex&&x.id!==x.dex),label=i?'상대':'내 포켓몬';
-  el.innerHTML=`<div class="searchbox"><input id="q${i}" autocomplete="off" aria-label="${label} 검색" placeholder="⌕ ${label} 검색"><div id="s${i}" class="suggest"></div></div>${card(p,label)}${forms.length?`<div class="mega">${(p.id!==p.dex?[by.get(p.dex),...forms]:forms).map(f=>`<button data-form="${f.id}" aria-pressed="${f.id===p.id}">${f.id===p.dex?'↶ 기본 모습':'✧ '+esc(f.name)}</button>`).join('')}</div>`:''}`;
+  el.innerHTML=`<div class="searchbox"><input id="q${i}" autocomplete="off" aria-label="${label} 검색" placeholder="⌕ ${label} 검색"><button class="slotmic" aria-label="${label} 이름 말하기" type="button">🎙</button><div id="s${i}" class="suggest"></div></div>${card(p,label)}${forms.length?`<div class="mega">${(p.id!==p.dex?[by.get(p.dex),...forms]:forms).map(f=>`<button data-form="${f.id}" aria-pressed="${f.id===p.id}">${f.id===p.dex?'↶ 기본 모습':'✧ '+esc(f.name)}</button>`).join('')}</div>`:''}`;
   const q=$('q'+i),s=$('s'+i);
-  q.onfocus=()=>{target=i};
+  el.querySelector('.slotmic').onclick=()=>{target=i;mic()};q.onfocus=()=>{target=i};
   q.oninput=()=>{s.replaceChildren();if(!q.value.trim())return;const found=G.search(idx,q.value);for(const f of found){let b=document.createElement('button');b.type='button';b.innerHTML=img(f)+`<b>${esc(f.name)}</b><small>${f.types.map(t=>G.types[t]).join('·')}</small>`;b.onclick=()=>choose(i,f);s.append(b)}if(!found.length)s.textContent='찾는 친구가 없어. 다른 이름을 써 봐.'};
   q.onkeydown=e=>{if(e.key==='Enter')s.querySelector('button')?.click();if(e.key==='Escape')s.replaceChildren();if(e.key==='ArrowDown'){e.preventDefault();s.querySelector('button')?.focus()}};
   el.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{choose(i,by.get(+b.dataset.form));say(pair[i].name+'!')})
@@ -51,8 +51,8 @@
   for(const e of result.events){
    if(id!==epoch)return;const a=$('a'+e.i),b=$('a'+e.j),fx=$('fx'),m=d.moves[e.move];
    for(let i of [0,1])$('a'+i).classList.remove('hit','strike');
-   fx.className='';void fx.offsetWidth;a.classList.add('strike');if(e.hit)b.classList.add('hit');fx.textContent=G.icons[m.type];fx.className='shot'+(e.i?' reverse':'');
-   $('round').textContent=e.round+'라운드';$('log').textContent=`${pair[e.i].name}의 ${m.name}! `+(e.hit?(e.crit?'급소에 맞았어! ':e.factor>1?'효과가 굉장해! ':'')+'−'+e.damage:'빗나갔어!');
+   fx.className='';void fx.offsetWidth;a.classList.add('strike');if(e.damage)b.classList.add('hit');fx.textContent=e.hit?(m.category===2?'✴':G.icons[m.type]):'· · ·';fx.style.setProperty('--trail',G.colors[m.type]);fx.className='shot '+(m.priority>0?'swift':m.category===2?'impact':m.power>=90?'surge':'beam')+(e.i?' reverse':'');
+   $('round').textContent=e.round+'라운드';$('log').textContent=`${pair[e.i].name}의 ${m.name}! `+(e.hit?(e.factor===0?'효과가 없었어! ':e.crit?'급소에 맞았어! ':e.factor>1?'효과가 굉장해! ':'')+'−'+e.damage:'빗나갔어!');
    e.hp.forEach((h,i)=>{$('hp'+i).textContent=h+'/'+G.hp(pair[i]);$('bar'+i).style.width=h/G.hp(pair[i])*100+'%'});await pause(710)
   }
   if(id!==epoch)return;const w=result.winner,v=pair[w],l=pair[1-w],why=G.explain(result,pair,d);

@@ -25,3 +25,8 @@ test('speed, miss, critical and move priority',()=>{
  const id=Object.keys(d.moves).find(k=>d.moves[k].power&&d.moves[k].accuracy<100);
  const slow={...b,moves:[Number(id)]},fast={...a,moves:[165]};assert.ok(G.run(G.plan([slow,fast],d),()=>.99999).events.some(e=>!e.hit));
 });
+test('immune targets take no damage from the original move even without coverage',()=>{
+ const p={...by.get(25),moves:[85]},target={...by.get(27),moves:[85]};
+ const hit=G.run(G.plan([p,target],d),()=>.1).events.find(e=>e.i===0&&e.move===85);
+ assert.equal(hit.factor,0);assert.equal(hit.damage,0)
+});

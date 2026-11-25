@@ -43,12 +43,12 @@ const Game=(()=>{
  function run({pair,lists,struggle},rng=Math.random,record=true){
    const h=pair.map(hp),pp=lists.map(l=>l.map(v=>v.m.pp)),events=[];
    for(let round=1;;round++){
-     const picks=lists.map((l,i)=>{let k=l.findIndex((v,j)=>pp[i][j]>0&&v.factor>0);return [k,k<0?struggle[i]:l[k]]});
+     const picks=lists.map((l,i)=>{let k=l.findIndex((v,j)=>pp[i][j]>0&&v.factor>0);if(k<0)k=l.findIndex((v,j)=>pp[i][j]>0);return [k,k<0?struggle[i]:l[k]]});
      const first=(picks[0][1].m.priority-picks[1][1].m.priority||pair[0].stats[5]-pair[1].stats[5]||rng()-.5)>=0?0:1;
      for(const i of [first,1-first]){
        const j=1-i,[k,v]=picks[i];if(k>=0)pp[i][k]--;
        const hit=rng()<v.m.accuracy/100,crit=hit&&rng()<1/24;
-       const damage=hit?Math.min(h[j],Math.max(1,Math.floor(v.base*(crit?1.5:1)*(.85+rng()*.15)))):0;
+       const damage=hit&&v.factor>0?Math.min(h[j],Math.max(1,Math.floor(v.base*(crit?1.5:1)*(.85+rng()*.15)))):0;
        h[j]-=damage;
        const recoil=v.id===165?Math.min(h[i],Math.max(1,Math.floor(hp(pair[i])/4))):0;h[i]-=recoil;
        if(record)events.push({i,j,move:v.id,damage,crit,hit,factor:v.factor,recoil,attack:v.attack,defense:v.defense,hp:[...h],round});
