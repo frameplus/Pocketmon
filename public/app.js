@@ -9,6 +9,8 @@
  let savedPair;try{savedPair=JSON.parse(sessionStorage.getItem('arena.pair'))}catch{}
  let pair=Array.isArray(savedPair)&&savedPair.length===2&&savedPair.every(id=>by.has(id))?savedPair.map(id=>by.get(id)):[by.get(25),by.get(6)],battlePlan,epoch=0,busy=false,activePage='',target=0,pageSize=36,noticeTimer,rec=null,voiceEpoch=0,focus=25,lastIntent='',suggested=null,questionEpoch=0;
  let mute=get('mute',false),history=get('history',[]);if(!Array.isArray(history))history=[];
+ const savedTrainers=get('trainers',[]);
+ const trainers=[0,1].map(i=>typeof savedTrainers?.[i]==='string'?savedTrainers[i].slice(0,24):'');
  let powerOrder=false;
  const badges=p=>p.types.map(t=>`<span class="badge">${G.icons[t]} ${types[t]}</span>`).join('');
  const img=(p,extra='')=>`<img src="/art/${p.id}" alt="${esc(p.name)}" ${extra}>`;
@@ -35,14 +37,31 @@
  function choose(i,p){pair[i]=p;focus=p.id;target=i;refresh()}
  function slot(i){
   const p=pair[i],el=$('slot'+i),forms=d.pokemon.filter(x=>x.dex===p.dex&&x.id!==x.dex),label=i?t('상대',"Opponent"):t('내 포켓몬',"My Pokémon");
-  el.innerHTML=`<label class="slot-label" for="q${i}">${i?t("상대 카드","Opponent’s card"):t("내 카드","My card")}</label><div class="searchbox"><input id="q${i}" autocomplete="off" aria-label="${en?label+' search':label+' 검색'}" placeholder="${t('이름 검색','Find Pokémon')}"><button class="slotmic" aria-label="${label} ${t('이름 말하기','voice search')}" type="button">🎙</button><div id="s${i}" class="suggest"></div></div>${card(p,'')}${forms.length?`<div class="mega">${(p.id!==p.dex?[by.get(p.dex),...forms]:forms).map(f=>`<button data-form="${f.id}" aria-pressed="${f.id===p.id}">${f.id===p.dex?t('↶ 기본 모습',"↶ Base form"):'✧ '+esc(f.name)}</button>`).join('')}</div>`:''}`;
+  const side=i?t('상대 카드','Opponent’s card'):t('내 카드','My card');
+  const drawLabel=i?t('상대 카드 뽑기','Draw opponent’s card'):t('내 카드 뽑기','Draw my card');
+  el.innerHTML=`<div class="trainer-head">
+    <label class="slot-label" for="trainer${i}">${side}</label>
+    <input id="trainer${i}" type="text" maxlength="24" autocomplete="off" spellcheck="false" aria-label="${side} ${t('유저네임','username')}" placeholder="${t('유저네임','Username')}">
+  </div>
+  ${card(p,'')}
+  <div class="pick-controls">
+    <div class="searchbox"><input id="q${i}" autocomplete="off" aria-label="${en?label+' search':label+' 검색'}" placeholder="${t('포켓몬 검색','Find Pokémon')}"><button class="slotmic" aria-label="${label} ${t('이름 말하기','voice search')}" type="button">🎙</button><div id="s${i}" class="suggest"></div></div>
+    <button type="button" class="draw-card" id="draw${i}" aria-label="${drawLabel}"><i class="deck-icon" aria-hidden="true"></i>${t('랜덤 카드 뽑기','Draw random card')}</button>
+  </div>${forms.length?`<div class="mega">${(p.id!==p.dex?[by.get(p.dex),...forms]:forms).map(f=>`<button data-form="${f.id}" aria-pressed="${f.id===p.id}">${f.id===p.dex?t('↶ 기본 모습',"↶ Base form"):'✧ '+esc(f.name)}</button>`).join('')}</div>`:''}`;
+  const trainer=$('trainer'+i);
+  trainer.value=trainers[i];
+  trainer.oninput=()=>{
+    trainers[i]=trainer.value;put('trainers',trainers);
+    const tag=$('trainer-tag'+i);tag.textContent=trainer.value.trim();tag.hidden=!tag.textContent;
+  };
+  $('draw'+i).onclick=()=>{drawCards(i);$('draw'+i).focus({preventScroll:true})};
   const q=$('q'+i),s=$('s'+i);
   el.querySelector('.slotmic').onclick=()=>{target=i;mic()};q.onfocus=()=>{target=i};
   q.oninput=()=>{s.replaceChildren();if(!q.value.trim())return;const found=G.search(idx,q.value);for(const f of found){let b=document.createElement('button');b.type='button';b.innerHTML=img(f)+`<b>${esc(f.name)}</b><small>${f.types.map(t=>types[t]).join('·')}</small>`;b.onclick=()=>choose(i,f);s.append(b)}if(!found.length)s.textContent=t('찾는 친구가 없어. 다른 이름을 써 봐.',"No match. Try another name.")};
   q.onkeydown=e=>{if(e.key==='Enter')s.querySelector('button')?.click();if(e.key==='Escape')s.replaceChildren();if(e.key==='ArrowDown'){e.preventDefault();s.querySelector('button')?.focus()}};
   el.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{choose(i,by.get(+b.dataset.form));say(pair[i].name+'!')})
  }
- function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${img(p)}<div class="hud"><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
+ function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${img(p)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
   epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=true;
   slot(0);slot(1);battlePlan=G.plan(pair,d);const odds=G.odds(battlePlan),lead=odds[0]>=odds[1]?0:1,move=battlePlan.lists[lead][0];
@@ -67,12 +86,13 @@
   history=[{ids:pair.map(p=>p.id),w,time:Date.now()},...history].slice(0,24);put('history',history);
   busy=false;$('start').disabled=false;$('start').textContent=t('↻ 다시 대결',"↻ Rematch");$('result').scrollIntoView({block:'nearest',behavior:'smooth'});say(en?`${v.name} wins! ${why.join(" ")}`:`${v.name} 승리! ${why[0]} ${l.name}은 ${why[1]}`)
  }
- function drawCards(){
+ function drawCards(side){
   const oldSpecies=new Set(pair.map(p=>p.dex));
   const pool=d.pokemon.filter(p=>p.id===p.dex&&!oldSpecies.has(p.dex));
   const pick=()=>pool.splice(Math.floor(Math.random()*pool.length),1)[0];
-  pair=[pick(),pick()];
-  focus=pair[0].id;target=0;suggested=null;questionEpoch++;
+  if(side===0||side===1){pair[side]=pick();target=side}
+  else{pair=[pick(),pick()];target=0}
+  focus=pair[target].id;suggested=null;questionEpoch++;
   cancelVoice();refresh();
  }
  function openModal(html){$('modalbody').innerHTML=html;if(!$('modal').open)$('modal').showModal()}
@@ -115,7 +135,7 @@
    if(suggested&&/^(응|그래|좋아|붙여|해봐|yes|ok|sure)[!. ]*$/i.test(text)){reply={action:{kind:'battle',ids:suggested},reply:t('좋아! 함께 배틀 필드로 가자!',"Great! Let’s head to the battlefield!"),focus:suggested[0],intent:'battle'}}
    else{const r=await fetch('/api/friend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,lang,pair:pair.map(x=>x.id),focus,lastIntent:prior})});if(!r.ok)throw Error();reply=await r.json()}
    if(seq!==questionEpoch)return;focus=reply.focus;lastIntent=reply.intent;suggested=reply.suggest||null;bubble(reply.reply,false);
-   if(reply.action){go('battle');if(reply.action.kind==='battle'){usePair(reply.action.ids);battle()}else if(reply.action.kind==='random')drawCards();else choose(target,by.get(reply.action.id))}else if(activePage!=='friend')go('friend');say(reply.reply)
+   if(reply.action){const drawSide=activePage==='battle'?target:undefined;go('battle');if(reply.action.kind==='battle'){usePair(reply.action.ids);battle()}else if(reply.action.kind==='random')drawCards(drawSide);else choose(target,by.get(reply.action.id))}else if(activePage!=='friend')go('friend');say(reply.reply)
   }catch{if(seq===questionEpoch)notify(t('친구와 연결하지 못했어. 잠시 뒤에 다시 말해 줘.',"Could not reach your buddy. Try again in a moment."))}
  }
  async function digest(pin,salt){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},key,256);return [...new Uint8Array(bits)].map(v=>v.toString(16).padStart(2,'0')).join('')}
@@ -127,7 +147,7 @@
   $('clearhistory').onclick=()=>{history=[];put('history',history);records();$('pinmsg').textContent=t('이 기기의 기록을 지웠어요.',"History cleared on this device.")};
   $('setpin').onsubmit=async e=>{e.preventDefault();const salt=crypto.randomUUID();put('pin',{salt,hash:await digest($('newpin').value,salt)});$('newpin').value='';$('pinmsg').textContent=t('저장했어요. 다음에 열 때 비밀번호가 필요해요.',"Saved. Your PIN will be needed next time.")}
  }
- $('settings').onclick=()=>settings();$('close').onclick=()=>$('modal').close();$('start').onclick=battle;$('random').onclick=drawCards;
+ $('settings').onclick=()=>settings();$('close').onclick=()=>$('modal').close();$('start').onclick=battle;
  $('dexquery').oninput=()=>{pageSize=36;catalog()};$('more').onclick=()=>{pageSize+=36;catalog()};
  $('catalog').onclick=e=>{const btn=e.target.closest('[data-card]');if(!btn)return;const p=by.get(+btn.dataset.card);openModal(card(p,t('전국도감',"National Dex"))+`<button id="mine">${t('내 카드로','Pick for me')}</button><button id="theirs">${t('상대 카드로','Pick as opponent')}</button>`);for(let [n,i] of [['mine',0],['theirs',1]])$(n).onclick=()=>{$('modal').close();choose(i,p);go('battle')}};
  $('chat').onsubmit=e=>{e.preventDefault();ask($('message').value)};$('examples').onclick=e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent)};
