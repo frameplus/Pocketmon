@@ -45,7 +45,7 @@ module.exports=async function testBattleAction(browser,url){
   await page.locator('#result h2').waitFor();
   assert.match(await page.locator('#result').innerText(),/화염방사.*106[\s\S]*위력이 90/);
   assert.equal(await page.locator('#hit-lesson,#continue-hit').count(),0);
-  await start.click();await phase('flame','windup');await page.locator('#draw0').click();
+  await start.click();assert.ok(await page.locator('#celebration').isHidden());await phase('flame','windup');await page.locator('#draw0').click();
   assert.equal(await field.getAttribute('data-phase'),null);assert.ok(await field.locator('.hit-points').isHidden());
   console.log('PASS animated battle sprites, fire/lightning timings, impact HP, uninterrupted battle, result explanation, cancellation');
  }finally{await page.close()}

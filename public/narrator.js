@@ -16,6 +16,21 @@ function createNarrator(lang,onState){
     voice.onended=()=>{voice.disconnect();volume.disconnect();if(tone===voice)tone=null};
     voice.start(now);voice.stop(now+length+.01);
   }
+  function victorySound(){
+    if(context?.state!=='running'||tone)return;
+    const voice=context.createOscillator(),gain=context.createGain(),now=context.currentTime;
+    tone=voice;voice.type='triangle';
+    [392,494,587,784].forEach((hz,i)=>{
+      const at=now+i*.13;
+      voice.frequency.setValueAtTime(hz,at);
+      gain.gain.setValueAtTime(.0001,at);
+      gain.gain.exponentialRampToValueAtTime(.075,at+.018);
+      gain.gain.exponentialRampToValueAtTime(.0001,at+(i===3 ? .35 : .12));
+    });
+    voice.connect(gain);gain.connect(context.destination);
+    voice.onended=()=>{voice.disconnect();gain.disconnect();if(tone===voice)tone=null};
+    voice.start(now);voice.stop(now+.76);
+  }
   function unlock(){
     try{
       const Audio=window.AudioContext||window.webkitAudioContext;
@@ -78,5 +93,5 @@ function createNarrator(lang,onState){
     return done;
   }
   try{synth?.getVoices()}catch{}
-  return {speak,stop,unlock,impactSound};
+  return {speak,stop,unlock,impactSound,victorySound};
 }

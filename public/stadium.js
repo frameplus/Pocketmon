@@ -85,20 +85,20 @@ function paintArena(scene){
 // Measure the silhouette in the battle camera, so a long tail or deep wingspan
 // does not shrink the whole fighter. Keep the full silhouette inside its lane.
 function battleScale(model,yaw,camera){
- const x=[],y=[],vertex=new T.Vector3(),up=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
+ const vertex=new T.Vector3(),up=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
  const axis=new T.Vector3(0,1,0);
+ let left=Infinity,right=-Infinity,top=-Infinity,bottom=Infinity;
  model.traverseVisible(mesh=>{
   if(!mesh.isMesh)return;
   const count=mesh.geometry.attributes.position.count,stride=Math.max(1,Math.ceil(count/1400));
   for(let j=0;j<count;j+=stride){
    mesh.getVertexPosition(j,vertex).applyMatrix4(mesh.matrixWorld).applyAxisAngle(axis,yaw);
-   x.push(vertex.x);y.push(vertex.dot(up));
+   const y=vertex.dot(up);
+   left=Math.min(left,vertex.x);right=Math.max(right,vertex.x);
+   top=Math.max(top,y);bottom=Math.min(bottom,y);
   }
  });
- if(!x.length)return 0;
- x.sort((a,b)=>a-b);y.sort((a,b)=>a-b);
- const span=(a,trim)=>a[Math.ceil((1-trim)*(a.length-1))]-a[Math.floor(trim*(a.length-1))];
- return Math.min(2.62/Math.sqrt(span(x,.035)*span(y,.035)),3.70/span(x,0),2.95/span(y,0));
+ return 3.55/Math.max(right-left,top-bottom);
 }
 function disposeModel(model){
  const textures=new Set(),materials=new Set(),geometries=new Set();
@@ -119,6 +119,7 @@ export function createStadium(field){
  Object.assign(sun.shadow.camera,{left:-6,right:6,top:5,bottom:-5,near:.5,far:22});sun.shadow.normalBias=.025;sun.shadow.bias=-.00035;scene.add(sun);
  const rim=new T.DirectionalLight(0xe0eeff,.50);rim.position.set(5,4,-3);scene.add(rim);paintArena(scene);
  const loader=new GLTFLoader(),draco=new DRACOLoader();draco.setDecoderPath('/vendor/three/examples/jsm/libs/draco/gltf/');draco.setWorkerLimit(1);loader.setDRACOLoader(draco);
+ let factors=[1,1];
  const slots=[null,null],ids=[0,0],requests=[null,null],jobs=[null,null],shadowMap=document.createElement('canvas');
  shadowMap.width=shadowMap.height=64;const cx=shadowMap.getContext('2d'),grad=cx.createRadialGradient(32,32,1,32,32,32);
  grad.addColorStop(0,'rgba(27,52,67,.48)');grad.addColorStop(.56,'rgba(27,52,67,.25)');grad.addColorStop(1,'rgba(27,52,67,0)');cx.fillStyle=grad;cx.fillRect(0,0,64,64);
@@ -135,7 +136,7 @@ export function createStadium(field){
  const sizeObserver=new ResizeObserver(resize);sizeObserver.observe(field);resize();
  function projected(pos){const v=pos.clone().project(camera);return [(v.x+1)/2,(1-v.y)/2]}
  function anchors(){
-  return pads.map((p,i)=>projected(new T.Vector3(p.x,(slots[i]?.height||2.3)*.57+.26,p.z)));
+  return pads.map((p,i)=>projected(new T.Vector3(p.x,((slots[i]?.height||2.3)*factors[i])*.57+.26,p.z)));
  }
  function updateGround(){
   pads.forEach((p,i)=>{const v=projected(new T.Vector3(p.x,.26,p.z));field.style.setProperty(i?'--far-x':'--near-x',(v[0]*100)+'%');field.style.setProperty(i?'--far-feet':'--near-feet',(v[1]*100)+'%')});
@@ -201,6 +202,7 @@ export function createStadium(field){
  }
  function select(pair){
   winner=-1;if(stopped)return;
+  factors=window.Game.fieldSizes(pair);
   pair.forEach((p,i)=>{if(p.id!==ids[i])jobs[i]=selectOne(p.id,i)});
   return Promise.all(jobs);
  }
@@ -224,7 +226,7 @@ export function createStadium(field){
   if(!sparks.visible)return;
   const {t,i,travel}=action,source=pads[i],dest=pads[1-i],v=clamp((t-.20)/.33),impact=clamp((t-.53)/.36);
   sparks.visible=t>=.18&&t<.89&&(!travel||t>=.53);if(!sparks.visible)return;
-  const h0=(slots[i]?.height||2.3)*.57+.26,h1=(slots[1-i]?.height||2.3)*.57+.26;
+  const h0=((slots[i]?.height||2.3)*factors[i])*.57+.26,h1=((slots[1-i]?.height||2.3)*factors[1-i])*.57+.26;
   sparks.position.set(T.MathUtils.lerp(source.x,dest.x,v),T.MathUtils.lerp(h0,h1,v),T.MathUtils.lerp(source.z,dest.z,v));
   sparks.children.forEach((s,k)=>{
    const angle=k*Math.PI/4+t*7,r=.12+impact*.75;
@@ -247,7 +249,8 @@ export function createStadium(field){
    s.base.rotation.set(0,angles[i],0);
    const size=phase==='release'&&!still.matches?clamp((time-release-90)/440):1;
    s.base.visible=phase!=='throw'&&size>.01;shadows[i].visible=s.base.visible;
-   s.base.scale.setScalar(Math.max(.001,size));
+   s.base.scale.setScalar(Math.max(.001,size)*factors[i]);
+   shadows[i].scale.setScalar(factors[i]);
    if(!still.matches){
     s.mixer.update(dt);
     const beat=time*.0043+i*2.2,step=(1-Math.cos(beat))*.5;

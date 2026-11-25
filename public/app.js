@@ -46,7 +46,7 @@
  }
  function card(p,side){
   const moves=p.moves.map(id=>{const m=d.moves[id];return `<div class="move"><b>${esc(m.name)}</b><small>${G.icons[m.type]} ${types[m.type]} · ${m.power?t('위력 ',"Power ")+m.power:m.category===1?t('변화 기술','Status move'):t('가변·특수 위력','Variable / special power')}</small></div>`}).join('');
-  return `<article class="card" style="--t:${G.colors[p.types[0]]};--u:${G.colors[p.types[1]||p.types[0]]}"><div class="shell"><div class="cardtop"><div><small class="serial">${side ? esc(side)+" · " : ""}No. ${String(p.dex).padStart(4,'0')}</small><h2>${esc(p.name)}</h2></div><span class="hp"><small>Lv.50 · HP</small> <b class="card-hp">${G.hp(p)}</b></span></div><div class="art">${img(p)}</div><div class="meta">${badges(p)}<span class="region-tag">${esc(region(p.region))}</span></div><div class="card-info"><h3 class="move-title">${t("도감 종족값","Base stats")}</h3><div class="stats">${p.stats.map((v,i)=>`<span>${stats[i]}<b>${v}</b></span>`).join('')}</div><h3 class="move-title">${t("대표 기술","Moves")}</h3>${moves}</div></div></article>`
+  return `<article class="card" style="--t:${G.colors[p.types[0]]};--u:${G.colors[p.types[1]||p.types[0]]}"><div class="shell"><div class="cardtop"><div><small class="serial">${side ? esc(side)+" · " : ""}No. ${String(p.dex).padStart(4,'0')}</small><h2>${esc(p.name)}</h2></div><span class="hp"><small>Lv.50 · HP</small> <b class="card-hp">${G.hp(p)}</b></span></div><div class="art">${img(p)}</div><div class="meta">${badges(p)}<span class="region-tag">${esc(region(p.region))}</span><span class="height-tag">${t("도감 키","Height")} ${p.heightDm/10} m</span></div><div class="card-info"><h3 class="move-title">${t("도감 종족값","Base stats")}</h3><div class="stats">${p.stats.map((v,i)=>`<span>${stats[i]}<b>${v}</b></span>`).join('')}</div><h3 class="move-title">${t("대표 기술","Moves")}</h3>${moves}</div></div></article>`
  }
  function choose(i,p){pair[i]=p;focus=p.id;target=i;refresh()}
  function slot(i){
@@ -101,8 +101,9 @@
   }
   image.style.objectViewBox=spriteCrops.get(source);
  },true);
- function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${fighter(p,i)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
+ function actors(){const sizes=G.fieldSizes(pair);return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}" style="--fighter-size:${sizes[i]}">${fighter(p,i)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
+  $('celebration').hidden=true;
   $('battlefield').dataset.scene='ready';combat.clear();narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
   slot(0);slot(1);$('odds').replaceChildren();forecastVersion=-1;
   stadium?.select(pair);$('actors').innerHTML=actors();$('round').textContent=t('준비 완료',"Ready");$('log').textContent=pair.map(x=>x.name).join(t(' 대 '," vs. "))+'!';
@@ -146,7 +147,7 @@
   if(id===epoch&&field.dataset.scene==='release')field.dataset.scene='battle';
  }
  async function battle(){
-  if(busy)return;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('start').disabled=true;
+  if(busy)return;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('celebration').hidden=true;$('start').disabled=true;
   $('start').textContent=t('대결 중…','Battling…');$('result').hidden=true;$('prediction').open=false;
   $('actors').innerHTML=actors();updateHP(pair.map(G.hp),pair.map(G.hp));
   $('arena').scrollIntoView({block:'center',behavior:'smooth'});
@@ -179,11 +180,14 @@
   if(id!==epoch)return;
   stadium?.finish(result.winner);
   const w=result.winner,why=G.explain(result,pair,d,lang);
-  if(w>=0&&events.at(-1)?.hp[1-w]===0){
-   $('round').textContent=t('승부가 났어!','Match decided!');
-   // Let the final hit, HP bars and victory pose read together before scrolling.
-   await pause(900);if(id!==epoch)return;
-  }
+  const banner=$('celebration');
+  banner.dataset.side=w<0?'tie':String(w);
+  $('victory-word').textContent=w<0?'DRAW!':'VICTORY!';
+  $('victory-name').textContent=w<0?t('무승부!','A tie!'):pair[w].name+t(' 승리!',' wins!');
+  banner.hidden=false;
+  $('round').textContent=t('승부가 났어!','Match decided!');
+  if(w>=0&&!mute&&!rec)narrator.victorySound();
+  await pause(2100);if(id!==epoch)return;
   $('round').textContent=t('대결 끝','Finished');$('log').textContent=t('두 친구 모두 수고했어!','Well played, both of you!');$('prediction').open=false;
   const v=pair[w],l=pair[1-w],title=v?v.name+t(' 승리!',' wins!'):t('무승부!','A tie!');
   const reading=[title,...why].filter(Boolean).join(' ');
