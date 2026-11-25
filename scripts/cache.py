@@ -123,3 +123,10 @@ client="https://raw.githubusercontent.com/smogon/pokemon-showdown-client/24c2660
 trainers="https://raw.githubusercontent.com/pret/pokeemerald/8cf518839e529eeb2477905ede1df7213ac134b8/graphics/trainers/back_pics/"
 for url in [client+"bg-meadow.png",trainers+"red.png",trainers+"brendan.png"]:
     fetch(url,stage/url.rsplit("/",1)[1],b"\x89PNG\r\n\x1a\n")
+
+# Bundle the opening matchup and common starter partners. Other available models
+# are fetched by validated ID from the same snapshot and cached on the game server.
+def warm_model(i):
+    fetch(f"https://raw.githubusercontent.com/Pokemon-3D-api/assets/429de1288cea0d43f5b4f56305d2276e94239d65/models/opt/regular/{i}.glb",
+          out/"models"/f"{i}.glb",b"glTF")
+with ThreadPoolExecutor(max_workers=8) as workers: list(workers.map(warm_model,[1,3,4,6,7,9,25,129,133,150]))
