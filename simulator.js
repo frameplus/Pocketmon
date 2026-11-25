@@ -26,12 +26,14 @@ function makeSimulator(data) {
       const active = () => battle.sides.map(s=>s.active[0]||s.pokemon[0]);
       const initial = active().map(p=>p.maxhp), events=[];
       let hp=active().map(p=>p.hp), max=initial.slice();
+      const contexts=record?observeHits(battle):null;
       for(let round=1;!battle.ended && round<=100;round++){
         const cursor=battle.log.length;
+        if(record) contexts.clear();
         const choices=battle.sides.map((side,i)=>choice(side,active()[1-i]));
         battle.makeChoices(...choices);
         if(record){
-          const rendered=readTurn(battle.log.slice(cursor),round,hp,max);
+          const rendered=readTurn(battle.log.slice(cursor),round,hp,max,contexts,cursor);
           events.push(...rendered);
           hp=active().map(p=>p.hp);max=active().map(p=>p.maxhp);
           if(rendered.length){rendered.at(-1).hp=hp.slice();rendered.at(-1).max=max.slice()}
@@ -82,7 +84,26 @@ function choice(side,foe){
   return index<0?'default':'move '+(index+1);
 }
 
-function readTurn(lines,round,startHp,startMax){
+// Read the resolved move type and defender's current form at the moment the
+// engine logs the hit. Recomputing from the two cards would miss type changes.
+function observeHits(battle){
+  const contexts=new Map(), add=battle.add;
+  battle.add=function(tag,target,...args){
+    const move=this.activeMove;
+    if(move && target?.getTypes && ['-supereffective','-resisted','-immune','-damage'].includes(tag)){
+      const factor=move.moveHitData?.[target.getSlot()]?.typeMod;
+      contexts.set(this.log.length,{
+        move:Dex.moves.get(move.id).num,type:G.englishTypes.indexOf(move.type),
+        defender:target.getTypes().map(t=>G.englishTypes.indexOf(t)),
+        factor:Number.isFinite(factor)?2**factor:null
+      });
+    }
+    return add.call(this,tag,target,...args);
+  };
+  return contexts;
+}
+
+function readTurn(lines,round,startHp,startMax,contexts,cursor){
   const hp=startHp.slice(),max=startMax.slice(),events=[];
   let event;
   const side=s=>s?.startsWith('p1')?0:s?.startsWith('p2')?1:-1;
@@ -91,10 +112,12 @@ function readTurn(lines,round,startHp,startMax){
     events.push(event);
   }
   for(let n=0;n<lines.length;n++){
+    const context=contexts.get(cursor+n);
     let fields=lines[n].split('|');
     if(fields[1]==='split'){fields=lines[n+1].split('|');n+=2}
     const [,tag,actor,val,...extra]=fields,i=side(actor);
     if(i<0)continue;
+    if(context&&event?.kind==='move'&&event.move===context.move&&i===event.j&&context.type>0)event.matchup=context;
     if(tag==='move'){begin(i,'move',Dex.moves.get(val).num);continue}
     if(tag==='cant'){begin(i,'cant');event.reason=val;continue}
     if(tag==='-damage'||tag==='-heal'||tag==='-sethp'){

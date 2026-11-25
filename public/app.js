@@ -14,14 +14,26 @@
  let powerOrder=false;
  const badges=p=>p.types.map(t=>`<span class="badge">${G.icons[t]} ${types[t]}</span>`).join('');
  const img=(p,extra='')=>`<img src="/art/${p.id}" alt="${esc(p.name)}" ${extra}>`;
- function say(s){if(mute||rec||!window.speechSynthesis)return;try{speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(s);u.lang=t('ko-KR','en-US');u.rate=.95;const ko=speechSynthesis.getVoices().find(v=>v.lang.startsWith(lang));if(ko)u.voice=ko;speechSynthesis.speak(u)}catch{}}
+ let readingState='idle';
+ const narrator=createNarrator(lang,state=>{
+   readingState=state;
+   const control=$('read-result'),status=$('read-status');
+   if(control){
+     const active=state==='playing'||state==='loading';
+     control.textContent=active?t('■ 읽기 멈추기','■ Stop reading'):t('🔊 결과 다시 듣기','🔊 Hear the result');
+     if(status)status.textContent=mute?t('부모 설정에서 음성 읽기가 꺼져 있어요.','Speech is off in parent settings.'):state==='error'?t('소리가 시작되지 않았어. 다시 듣기를 눌러 줘.','Sound could not start. Tap to hear the result.'):state==='loading'?t('목소리 준비 중…','Getting the voice ready…'):'';
+   }
+   if(state==='error'&&(activePage!=='battle'||$('result').hidden))notify(t('음성을 재생하지 못했어. 기기 소리를 확인해 줘.','Could not play the voice. Check your device sound.'));
+ });
+ function say(s){if(!mute&&!rec)narrator.speak(s)}
+ function unlockSound(){if(!mute)narrator.unlock()}
  function notify(s,hold=false){clearTimeout(noticeTimer);$('speech').textContent=s;$('speech').hidden=false;if(!hold)noticeTimer=setTimeout(()=>$('speech').hidden=true,5500)}
  function markMic(on){
   document.querySelectorAll('.slotmic').forEach((b,i)=>{const listening=on&&activePage==='battle'&&i===target;b.classList.toggle('onair',listening);b.setAttribute('aria-pressed',String(listening))});
   document.querySelectorAll('[data-mic]').forEach(b=>{b.classList.toggle('onair',on);b.textContent=on?t('● 듣고 있어요!',"● Listening!"):b.closest('#friend')?t('🎙 말하기',"🎙 Talk"):t('🎙 이름 말하기',"🎙 Say a name")})}
- function cancelVoice(){voiceEpoch++;if(rec){let old=rec;rec=null;try{old.abort()}catch{}}window.speechSynthesis?.cancel();markMic(false);$('speech').hidden=true}
+ function cancelVoice(){voiceEpoch++;if(rec){let old=rec;rec=null;try{old.abort()}catch{}}narrator.stop();markMic(false);$('speech').hidden=true}
  function mic(){
-  if(rec){rec.stop();return}cancelVoice();let R=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(rec){rec.stop();return}unlockSound();cancelVoice();let R=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!R||!window.isSecureContext){notify(t('이 브라우저에서는 들을 수 없어. HTTPS 주소를 Chrome에서 열거나 이름을 입력해 줘.',"Open the secure site in Chrome to use the mic, or type a name."));return}
   const generation=voiceEpoch,r=new R();rec=r;r.lang=t('ko-KR','en-US');r.interimResults=true;r.maxAlternatives=5;let choices=[],failed=false;
   r.onstart=()=>{if(generation===voiceEpoch){markMic(true);notify(t('🔴 듣고 있어요!',"🔴 Listening!"),true)}};
@@ -57,13 +69,13 @@
   $('draw'+i).onclick=()=>{drawCards(i);$('draw'+i).focus({preventScroll:true})};
   const q=$('q'+i),s=$('s'+i);
   el.querySelector('.slotmic').onclick=()=>{target=i;mic()};q.onfocus=()=>{target=i};
-  q.oninput=()=>{s.replaceChildren();if(!q.value.trim())return;const found=G.search(idx,q.value);for(const f of found){let b=document.createElement('button');b.type='button';b.innerHTML=img(f)+`<b>${esc(f.name)}</b><small>${f.types.map(t=>types[t]).join('·')}</small>`;b.onclick=()=>choose(i,f);s.append(b)}if(!found.length)s.textContent=t('찾는 친구가 없어. 다른 이름을 써 봐.',"No match. Try another name.")};
+  q.oninput=()=>{s.replaceChildren();if(!q.value.trim())return;const found=G.search(idx,q.value);for(const f of found){let b=document.createElement('button');b.type='button';b.innerHTML=img(f)+`<b>${esc(f.name)}</b><small>${f.types.map(t=>types[t]).join('·')}</small>`;b.onclick=()=>{unlockSound();choose(i,f);say(f.name+'!')};s.append(b)}if(!found.length)s.textContent=t('찾는 친구가 없어. 다른 이름을 써 봐.',"No match. Try another name.")};
   q.onkeydown=e=>{if(e.key==='Enter')s.querySelector('button')?.click();if(e.key==='Escape')s.replaceChildren();if(e.key==='ArrowDown'){e.preventDefault();s.querySelector('button')?.focus()}};
-  el.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{choose(i,by.get(+b.dataset.form));say(pair[i].name+'!')})
+  el.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{unlockSound();choose(i,by.get(+b.dataset.form));say(pair[i].name+'!')})
  }
  function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${img(p)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
-  epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
+  narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
   slot(0);slot(1);$('odds').replaceChildren();forecastVersion=-1;
   $('actors').innerHTML=actors();$('round').textContent=t('준비 완료',"Ready");$('log').textContent=pair.map(x=>x.name).join(t(' 대 '," vs. "))+'!';$('fx').textContent='';$('fx').className='';
  }
@@ -93,7 +105,7 @@
  }
  const pause=ms=>new Promise(r=>setTimeout(r,ms));
  async function battle(){
-  if(busy)return;const id=++epoch;busy=true;$('start').disabled=true;
+  if(busy)return;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('start').disabled=true;
   $('start').textContent=t('대결 중…','Battling…');$('result').hidden=true;$('prediction').open=false;
   $('actors').innerHTML=actors();updateHP(pair.map(G.hp),pair.map(G.hp));
   $('arena').scrollIntoView({block:'center',behavior:'smooth'});
@@ -122,9 +134,18 @@
   const w=result.winner,why=G.explain(result,pair,d,lang);
   $('round').textContent=t('대결 끝','Finished');$('log').textContent=t('두 친구 모두 수고했어!','Well played, both of you!');$('fx').textContent='';$('prediction').open=false;
   const v=pair[w],l=pair[1-w],title=v?v.name+t(' 승리!',' wins!'):t('무승부!','A tie!');
-  $('result').innerHTML=`<article class="win">${img(v||pair[0])}<div><h2>${v?'🏆 ':''}${esc(title)}</h2><p>${v?`<b>${en?'Why '+esc(v.name)+' won':esc(v.name)+'이 이긴 이유'}</b><br>`:''}${esc(why[0])}</p>${l?`<p><b>${en?'Why '+esc(l.name)+' lost':esc(l.name)+'이 진 이유'}</b><br>${esc(why[1])}</p>`:''}</div></article>`;$('result').hidden=false;
+  const reading=[title,...why].filter(Boolean).join(' ');
+  const section=(label,body)=>`<section class="recap-side"><h3>${esc(label)}</h3><p>${esc(body)}</p></section>`;
+  $('result').innerHTML=`<article class="battle-recap"><div class="recap-title">${img(v||pair[0])}<h2>${v?'🏆 ':''}${esc(title)}</h2></div>${section(v?t(v.name+'의 승리 비결','Why '+v.name+' won'):t('어떻게 비겼을까?','How did they tie?'),why[0])}${l?section(t(l.name+'에게 어려웠던 점','What made it hard for '+l.name),why[1]):''}<button type="button" id="read-result"></button><small id="read-status" role="status"></small></article>`;
+  $('result').hidden=false;
+  narrator.stop();
+  $('read-result').onclick=()=>{
+    if(mute){notify(t('부모 설정에서 음성 읽기를 켜 주세요.','Turn speech on in parent settings.'));return}
+    if(readingState==='playing'||readingState==='loading'){narrator.stop();return}
+    unlockSound();say(reading);
+  };
   history=[{ids:pair.map(p=>p.id),w,time:Date.now()},...history].slice(0,24);put('history',history);
-  busy=false;$('start').disabled=false;$('start').textContent=t('↻ 다시 대결','↻ Rematch');$('result').scrollIntoView({block:'nearest',behavior:'smooth'});say([title,...why].join(' '))
+  busy=false;$('start').disabled=false;$('start').textContent=t('↻ 다시 대결','↻ Rematch');$('result').scrollIntoView({block:'nearest',behavior:'smooth'});say(reading)
  }
  function drawCards(side){
   const oldSpecies=new Set(pair.map(p=>p.dex));
@@ -168,7 +189,7 @@
  }
  function bubble(text,you){let p=document.createElement('p');p.className='bubble'+(you?' you':'');p.textContent=text;$('talk').append(p);while($('talk').children.length>10)$('talk').firstElementChild.remove()}
  async function ask(text){
-  text=text.trim().slice(0,250);if(!text)return;const seq=++questionEpoch;const prior=lastIntent;
+  unlockSound();text=text.trim().slice(0,250);if(!text)return;const seq=++questionEpoch;const prior=lastIntent;
   bubble(text,true);$('message').value='';
   try{
    let reply;
@@ -183,7 +204,7 @@
   const lock=get('pin',null);
   if(lock&&!unlocked){openModal(en?'<h2>Parent settings</h2><p>Enter the parent PIN for this device.</p><form id="unlock"><input id="pin" type="password" inputmode="numeric" maxlength="8" required aria-label="Parent PIN"><button>Unlock</button></form><p id="pinmsg"></p>':'<h2>부모 설정</h2><p>이 기기의 부모 비밀번호를 입력해 주세요.</p><form id="unlock"><input id="pin" type="password" inputmode="numeric" maxlength="8" required aria-label="부모 비밀번호"><button>열기</button></form><p id="pinmsg"></p>');$('unlock').onsubmit=async e=>{e.preventDefault();if(await digest($('pin').value,lock.salt)===lock.hash)settings(true);else $('pinmsg').textContent=t('비밀번호가 달라요.',"That PIN doesn’t match.")};return}
   openModal(en?`<h2>Parent settings</h2><p>History and preferences stay on this device. The game does not save conversations or audio recordings. Your browser handles speech recognition.</p><button id="sound">Turn speech ${mute?'on':'off'}</button><button id="clearhistory">Clear battle history</button><form id="setpin"><input id="newpin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required placeholder="4 to 8 digits" aria-label="New parent PIN"><button>${lock?'Change':'Set'} PIN</button></form><p id="pinmsg"></p>`:`<h2>부모 설정</h2><p>기록과 설정은 이 기기에 보관합니다. 대화와 마이크 녹음은 게임 서버에 저장하지 않습니다. 음성 인식은 브라우저의 음성 서비스를 사용합니다.</p><button id="sound">음성 읽기 ${mute?'켜기':'끄기'}</button><button id="clearhistory">대결 기록 지우기</button><form id="setpin"><input id="newpin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required placeholder="숫자 4~8자리" aria-label="새 부모 비밀번호"><button>비밀번호 ${lock?'변경':'설정'}</button></form><p id="pinmsg"></p>`);
-  $('sound').onclick=()=>{mute=!mute;put('mute',mute);if(mute)window.speechSynthesis?.cancel();settings(true)};
+  $('sound').onclick=()=>{mute=!mute;put('mute',mute);narrator.stop();if(!mute){unlockSound();say(t('음성 읽기를 켰어요.','Speech is on.'))}settings(true)};
   $('clearhistory').onclick=()=>{history=[];put('history',history);records();$('pinmsg').textContent=t('이 기기의 기록을 지웠어요.',"History cleared on this device.")};
   $('setpin').onsubmit=async e=>{e.preventDefault();const salt=crypto.randomUUID();put('pin',{salt,hash:await digest($('newpin').value,salt)});$('newpin').value='';$('pinmsg').textContent=t('저장했어요. 다음에 열 때 비밀번호가 필요해요.',"Saved. Your PIN will be needed next time.")}
  }
