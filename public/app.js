@@ -155,6 +155,11 @@
   if(id!==epoch)return;
   stadium?.finish(result.winner);
   const w=result.winner,why=G.explain(result,pair,d,lang);
+  if(w>=0&&events.at(-1)?.hp[1-w]===0){
+   $('round').textContent=t('승부가 났어!','Match decided!');
+   // Let the final hit, HP bars and victory pose read together before scrolling.
+   await pause(900);if(id!==epoch)return;
+  }
   $('round').textContent=t('대결 끝','Finished');$('log').textContent=t('두 친구 모두 수고했어!','Well played, both of you!');$('prediction').open=false;
   const v=pair[w],l=pair[1-w],title=v?v.name+t(' 승리!',' wins!'):t('무승부!','A tie!');
   const reading=[title,...why].filter(Boolean).join(' ');

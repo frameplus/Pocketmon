@@ -112,14 +112,16 @@ function createCombat(field,world){
    }
   }
   return new Promise(resolve=>{
-   let frame=0,landed=false,start;
+   let frame=0,landed=false,previousTime,elapsed=0;
    function done(){
     world()?.move(null);cancelAnimationFrame(frame);motion.forEach(a=>a.cancel());label.hidden=true;points.hidden=true;canvas.hidden=true;
     delete field.dataset.phase;delete field.dataset.technique;active=null;resolve();
    }
    active=done;
    function tick(time){
-    start??=time;const t=clamp((time-start)/duration);
+    // After a stalled frame or a backgrounded tab, keep the approach and impact visible.
+    elapsed+=Math.min(time-(previousTime??time),80);previousTime=time;
+    const t=clamp(elapsed/duration);
     pose.t=t;
     if(t>=arrival&&!landed){
      landed=true;field.dataset.phase='impact';impact();

@@ -134,11 +134,14 @@ export function createStadium(field){
    const gltf=await loader.parseAsync(await res.arrayBuffer(),'');
    if(control.signal.aborted||stopped){disposeModel(gltf.scene);return}
    const model=gltf.scene,base=new T.Group(),pivot=new T.Group();base.add(pivot);pivot.add(model);
+   base.name='fighter-'+i;
    const mixer=new T.AnimationMixer(model);
-   const idle=gltf.animations.find(a=>/battlewait|idle.*loop|defaultwait|standing|^idle$/i.test(a.name));
+   const idle=gltf.animations.find(a=>/battlewait/i.test(a.name))||gltf.animations.find(a=>/idle.*loop|defaultwait|standing|^idle$/i.test(a.name));
    if(idle)mixer.clipAction(idle).play();mixer.update(0);
    // The pinned Pikachu export is Z-up. Keep its cheeks and ears upright in this Y-up arena.
    if(id===25)model.children[0].rotateX(-Math.PI/2);
+   // Eevee's rest pose pitches its nose into the ground. Correct it before measuring the model.
+   if(id===133)model.rotation.x=-.52;
    model.traverse(o=>{
     if(!o.isMesh)return;o.castShadow=true;
     if(id===6)for(const mat of [].concat(o.material)){
@@ -152,7 +155,16 @@ export function createStadium(field){
    const box=new T.Box3().setFromObject(model,true),extent=box.getSize(new T.Vector3()),center=box.getCenter(new T.Vector3());
    const scale=Math.min((id===25?2.32:2.72)/extent.y,(id===6?4.12:3.45)/Math.max(extent.x,extent.z));
    if(!Number.isFinite(scale)||scale<=0){disposeModel(model);return}
-   model.position.sub(new T.Vector3(center.x,box.min.y,center.z));pivot.scale.setScalar(scale);
+   const ground=new T.Vector3(center.x,box.min.y,center.z);
+   if(id===150){
+    // Its long tail shifts the bounding-box center far away from its stance.
+    const feet=['left_foot_index_50','right_foot_index_56'].map(name=>model.getObjectByName(name));
+    if(feet.every(Boolean)){
+     const stance=feet[0].getWorldPosition(new T.Vector3()).lerp(feet[1].getWorldPosition(new T.Vector3()),.5);
+     ground.x=stance.x;ground.z=stance.z;
+    }
+   }
+   model.position.sub(ground);pivot.scale.setScalar(scale);
    const attack=id!==25&&gltf.animations.find(a=>/rangeattack01|attack01|impactrueno|attack|atacar/i.test(a.name));
    const ears=id===25?['LEar1_5','REar1_8','Tail1_30'].map(n=>model.getObjectByName(n)).filter(Boolean).map(bone=>({bone,rest:bone.quaternion.clone()})):[];
    slots[i]={base,model,pivot,mixer,idle,attack,scale,height:extent.y*scale,id,ears};
@@ -191,7 +203,9 @@ export function createStadium(field){
   const next=field.dataset.scene;if(next!==phase){phase=next;if(next==='release'){release=time;winner=-1}if(next==='throw')winner=-1}
   slots.forEach((s,i)=>{
    if(!s){shadows[i].visible=false;return}
-   const from=pads[i],other=pads[1-i];s.base.position.copy(from);s.base.position.y=.275;s.base.rotation.y=angles[i];
+   const from=pads[i],other=pads[1-i];s.base.position.copy(from);s.base.position.y=.275;
+   // Pose each frame from the standing position, including after an interrupted move.
+   s.base.rotation.set(0,angles[i],0);
    const size=phase==='release'&&!still.matches?clamp((time-release-90)/440):1;
    s.base.visible=phase!=='throw'&&size>.01;shadows[i].visible=s.base.visible;
    s.base.scale.setScalar(Math.max(.001,size));
@@ -206,7 +220,7 @@ export function createStadium(field){
      if(i===action.i){
       const ease=Math.sin(Math.PI*clamp((t-.16)/.68));
       if(action.travel){s.base.position.x+=(other.x-from.x)*.68*ease;s.base.position.z+=(other.z-from.z)*.68*ease;s.base.position.y+=ease*.24}
-      else{s.base.rotation.y+=((i?-1:1)*.27)*ease;s.base.rotation.z+=(i?1:-1)*ease*.055}
+      else{s.base.rotation.y+=((i?-1:1)*.27)*ease;s.base.rotation.z=(i?1:-1)*ease*.055}
      }else if(t>=.53){const bump=Math.sin(Math.PI*clamp((t-.53)/.35));s.base.position.x+=(i?1:-1)*bump*(action.connects ? .31 : .10);s.base.position.y+=bump*(action.miss ? .33 : .08)}
     }
    }
