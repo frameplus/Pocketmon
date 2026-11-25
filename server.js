@@ -15,6 +15,7 @@ const server=http.createServer(async(req,res)=>{
  const send=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body))};
  try{
   const p=new URL(req.url,'http://localhost').pathname;
+  if(p==='/api/narration')return await require('./narration.js')(req,res);
   const match=/^\/api\/(forecast|battle)\/(\d+)\/(\d+)$/.exec(p);
   if(match){
    const ids=match.slice(2).map(Number);

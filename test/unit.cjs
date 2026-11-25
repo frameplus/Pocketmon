@@ -77,3 +77,18 @@ test('daily visits are distinct by browser, persisted on restart, and roll over 
     assert.equal(counter.snapshot({...visit,day:'2026-11-26'}).count,1);
   }finally{counter.close();fs.rmSync(dir,{recursive:true,force:true})}
 });
+
+test('children’s recap uses the resolved move, defender type, turn and real damage',()=>{
+ const ids=[25,7],pair=ids.map(id=>by.get(id)),r=sim.simulate(ids,{seed});
+ const hit=r.events[0];assert.equal(hit.matchup.factor,2);
+ const ko=G.explain(r,pair,d),en=G.explain(r,pair,d,'en');
+ assert.ok(ko[0].includes('10만볼트')&&ko[0].includes('전기')&&ko[0].includes('물 타입')&&ko[0].includes('2배')&&ko[0].includes(String(hit.damage)));
+ assert.match(en[0],/Water type.*Electric move.*2 times/);assert.ok(ko[1].includes('냉동빔'));
+ const four=fixture([76,6],[[88],[150]]).simulate([76,6],{seed});
+ const both=G.explain(four,[by.get(76),by.get(6)],d).join(' ');
+ assert.match(both,/불꽃·비행.*4배/);
+ const guard=sim.simulate([25,292],{seed});assert.match(G.explain(guard,[by.get(25),by.get(292)],d)[1],/불가사의부적/);
+ const pixilate=fixture([10051,25],[[304],[150]]).simulate([10051,25],{seed});
+ assert.equal(d.moves[304].type,1);assert.equal(pixilate.events.find(e=>e.damage).matchup.type,18);
+ assert.match(G.explain(pixilate,[by.get(10051),by.get(25)],d)[0],/페어리 기술/);
+});

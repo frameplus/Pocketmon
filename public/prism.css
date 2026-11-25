@@ -85,3 +85,13 @@ nav a.active { color: #174cb2; background: #edf3ff; }
 .card .hp { display:grid; justify-items:end; line-height:1.2; }
 .card .hp small { color:#765463; }
 .card-hp { font-variant-numeric:tabular-nums; }
+
+.battle-recap { padding:18px; border:1px solid #d5dfeb; border-radius:18px; background:white; }
+.recap-title { display:flex; align-items:center; gap:12px; }
+.recap-title img { width:clamp(68px,17vw,92px); height:auto; }
+.recap-title h2 { margin:0; color:#164483; }
+.recap-side { padding:14px 0; border-top:1px solid #e0e8f3; }
+.recap-side h3 { margin:0 0 6px; font-size:17px; color:#174579; }
+.recap-side p { margin:0; font-size:16px; line-height:1.65; word-break:keep-all; overflow-wrap:anywhere; }
+#read-result { min-height:46px; color:#174579; background:#edf4ff; }
+#read-status { display:block; margin-top:6px; }

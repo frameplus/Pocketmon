@@ -53,21 +53,72 @@ const Game=(()=>{
  }
  function explain(result,pair,d,lang='ko'){
    const en=lang==='en',w=result.winner,events=result.events;
-   if(w<0)return [result.capped?(en?'Both held on for 100 turns.':'두 친구 모두 100턴 동안 버텼어.'):(en?'The simulator recorded a tie.':'두 친구가 무승부를 기록했어.'),''];
-   const wins=events.filter(e=>e.i===w&&e.kind==='move'&&e.damage>0);
-   const strongest=wins.sort((a,b)=>b.damage-a.damage)[0];
-   const other=events.filter(e=>e.i===1-w&&e.kind==='move');
-   const block=other.find(e=>e.effect==='immune'),miss=other.find(e=>e.effect==='miss'),resist=other.find(e=>e.effect==='weak');
-   const last=events.at(-1);
-   const win=strongest?describe(strongest,pair,d,en):last?describe(last,pair,d,en):(en?'The battle ended.':'대결이 끝났어.');
-   let loss;
-   if(block){const wonder=block.reason==='ability: Wonder Guard';
-     loss=wonder?(en?'Wonder Guard blocked a move that did not hit a weakness.':'불가사의부적 특성이 약점을 찌르지 못한 기술을 막았어.'):describe(block,pair,d,en);
-   }else if(!other.length)loss=en?'The other side acted before it could use a move.':'상대가 먼저 움직여 기술을 쓸 기회를 얻지 못했어.';
-   else if(last?.kind==='indirect'&&last.i===1-w)loss=describe(last,pair,d,en);
-   else if(miss||resist)loss=describe(miss||resist,pair,d,en);
-   else {const dealt=other.reduce((sum,e)=>sum+e.damage,0);loss=en?'Its moves dealt '+dealt+' HP of damage, but the opponent held on.':'기술로 상대의 HP를 총 '+dealt+' 줄였지만 상대가 버텼어.'}
-   return [win,loss]
+   if(w<0)return [result.capped?(en?'Both friends lasted all 100 turns. Under our rules that makes a tie.':'두 친구가 100턴 동안 버텼어. 이 게임에서는 그때까지 승부가 안 나면 무승부야.'):(en?'Both friends finished on the same turn.':'두 친구가 같은 턴에 대결을 마쳤어.'),''];
+   const l=1-w, names=pair.map(p=>en?p.en:p.name), typeNames=en?englishTypes:types;
+   const moveName=e=>(en?d.moves[e.move]?.en:d.moves[e.move]?.name)||(en?'a move':'기술');
+   const moves=i=>events.filter(e=>e.i===i&&e.kind==='move');
+   const best=xs=>xs.reduce((a,e)=>!a||e.damage>a.damage?e:a,null);
+   const won=moves(w),lost=moves(l),big=best(won.filter(e=>e.damage)),reply=best(lost.filter(e=>e.damage));
+   function typeLesson(e){
+     const m=e.matchup;if(!m||!m.defender?.length||m.defender.some(id=>!typeNames[id]))return '';
+     const t=typeNames[m.type],name=names[e.j],def=m.defender.map(id=>typeNames[id]).join(en?'/':'·');
+     const weaknesses=m.defender.filter(id=>d.chart[m.type-1][id-1]>1);
+     const ordinary=m.defender.reduce((value,id)=>value*d.chart[m.type-1][id-1],1);
+     const vulnerable=ordinary===m.factor&&weaknesses.length===1?typeNames[weaknesses[0]]:def;
+     if(e.effect==='strong'&&m.factor>1)return en?
+       `Against ${name}’s ${vulnerable} type, that ${t} move had ${m.factor} times its usual effect.`:
+       `${t} 기술은 ${name}의 ${vulnerable} 타입 약점을 찔러서 효과가 평소의 ${m.factor}배였어.`;
+     if(e.effect==='weak'&&m.factor<1&&m.factor>0)return en?
+       `${name}’s ${def} type resisted that ${t} move. Its type effect was only 1/${1/m.factor} of normal.`:
+       `${name}의 ${def} 타입은 그 ${t} 기술을 잘 견뎌. 타입 효과가 평소의 ${m.factor===.5?'절반':(1/m.factor)+'분의 1'}이었어.`;
+     if(e.effect==='immune'&&!e.reason&&m.defender.some(id=>d.chart[m.type-1][id-1]===0))return en?
+       `${name}’s ${def} type was immune to that ${t} move, so it dealt no damage.`:
+       `${name}의 ${def} 타입에는 그 ${t} 기술이 통하지 않아. 그래서 체력이 그대로였어.`;
+     if(e.damage&&m.factor===1&&!e.effect)return en?
+       `That ${t} move did not hit a weakness of ${name}’s ${def} type.`:
+       `${name}의 ${def} 타입에는 이 ${t} 기술이 보통 세기로 통해.`;
+     return '';
+   }
+   function hit(e){
+     const lead=en?`On turn ${e.round}, ${names[e.i]} used ${moveName(e)} and took away ${e.damage} HP.`:
+       `${e.round}턴에 ${names[e.i]}의 ${moveName(e)}! 상대 체력이 한 번에 ${e.damage}만큼 줄었어.`;
+     const critical=e.crit?(en?' It also landed a critical hit, which made it stronger.':' 급소에도 맞아서 더 강했어.'):'';
+     return [lead,typeLesson(e)].filter(Boolean).join(' ')+critical;
+   }
+   const last=events.at(-1),wonByEffect=last?.kind==='indirect'&&last.i===l&&last.hp[l]===0;
+   let whyWon=big?hit(big):en?`${names[w]} stayed in the battle through turn ${last?.round||1}.`:`${names[w]} 쪽은 ${last?.round||1}턴까지 버텼어.`;
+   if(big&&!big.crit&&big.matchup?.factor===1){
+     const hits=won.filter(e=>e.move===big.move&&e.damage>0);
+     const hitsTotal=hits.reduce((total,e)=>total+e.damage,0);
+     if(hits.length>1)whyWon+=en?` It landed ${moveName(big)} on ${hits.length} turns for ${hitsTotal} HP in all.`:` ${moveName(big)} 기술이 ${hits.length}번 통해서 모두 ${hitsTotal}만큼 줄였어.`;
+   }
+   let whyLost;
+   const immune=lost.find(e=>e.effect==='immune'),miss=lost.find(e=>e.effect==='miss');
+   const resisted=best(lost.filter(e=>e.effect==='weak'&&e.damage));
+   if(wonByEffect){
+     const causes={recoil:['자기가 쓴 기술의 반동','recoil from its own move'],brn:['화상','its burn'],psn:['독','poison'],tox:['독','poison'],confusion:['혼란','confusion']};
+     const cause=causes[last.reason]?.[en?1:0]||(en?'a battle effect':'전투 효과');
+     whyLost=en?`On turn ${last.round}, ${names[l]} lost its last ${last.damage} HP to ${cause}.`:`${last.round}턴에는 ${cause} 때문에 ${names[l]}의 마지막 체력 ${last.damage}가 줄었어.`;
+   }else if(immune){
+     whyLost=en?`${names[l]} tried ${moveName(immune)} on turn ${immune.round}. `:`${immune.round}턴에 ${names[l]} 쪽은 ${moveName(immune)} 기술을 썼어. `;
+     whyLost+=immune.reason==='ability: Wonder Guard'?(en?'Wonder Guard only lets moves that hit a weakness through. This move was blocked.':'상대의 불가사의부적은 약점을 찌르는 공격만 통하게 해. 이 기술은 막혔어.'):
+       typeLesson(immune)||(en?'The move was blocked, so that attack took away no HP.':'이 공격은 막혀서 상대 체력을 하나도 줄이지 못했어.');
+   }else if(!lost.length){
+     whyLost=en?`${names[w]} moved first, so ${names[l]} never got to use a move.`:`${names[w]} 쪽이 먼저 공격해서 ${names[l]}에게는 기술을 쓸 차례가 오지 않았어.`;
+   }else if(resisted){whyLost=hit(resisted)}
+   else if(miss){
+     whyLost=en?`On turn ${miss.round}, ${names[l]} tried ${moveName(miss)}, but it missed. The opponent kept its HP on that attack.`:`${miss.round}턴에 ${names[l]}의 ${moveName(miss)} 기술이 빗나갔어. 그 공격으로는 상대 체력을 줄일 수 없었어.`;
+   }else if(reply){
+     const remaining=reply.hp[w];
+     whyLost=en?`Even its biggest hit, ${moveName(reply)} on turn ${reply.round}, left ${names[w]} with ${remaining} HP.`:
+       `${names[l]}의 가장 큰 공격은 ${reply.round}턴에 쓴 기술, ${moveName(reply)}! 그때도 ${names[w]}에게는 체력이 ${remaining} 남아서 계속 싸울 수 있었어.`;
+     if(reply.effect==='strong')whyLost+=' '+typeLesson(reply);
+   }else{
+     const e=lost.find(e=>e.effect==='prepare')||lost[0];
+     whyLost=en?`On turn ${e.round}, ${names[l]} used ${moveName(e)}. ${e.effect==='prepare'?'It needed a turn to charge.':'None of its moves dealt direct damage in this battle.'}`:
+       `${e.round}턴에 ${names[l]} 쪽은 ${moveName(e)} 기술을 썼어. ${e.effect==='prepare'?'힘을 모으는 데 한 차례가 필요했어.':'이번 대결에서는 상대에게 직접 피해를 준 기술이 없었어.'}`;
+   }
+   return [whyWon,whyLost]
  }
  return {types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,describe,explain}
 })();
