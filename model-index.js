@@ -1,0 +1,61 @@
+// Model inventory for the pinned Pokémon 3D API asset revision.
+const absent=new Set([850, 851, 852, 853, 854, 859, 860, 861, 863, 864, 866, 868, 873, 878, 879, 882, 883, 918, 919, 931, 935, 936, 938, 939, 940, 944, 950, 951, 952, 953, 954, 955, 956, 961, 963, 964, 968, 969, 970, 971, 972, 976, 977, 986, 988, 989, 991, 992, 993, 1011, 1012, 1013, 1022, 1024]);
+const forms={
+ "521": "regular/521-M.glb",
+ "668": "regular/668-M.glb",
+ "916": "regular/916-M.glb",
+ "10033": "mega/3.glb",
+ "10034": "x/6.glb",
+ "10035": "y/6.glb",
+ "10037": "mega/65.glb",
+ "10038": "mega/94.glb",
+ "10039": "mega/115.glb",
+ "10040": "mega/127.glb",
+ "10041": "mega/130.glb",
+ "10042": "mega/142.glb",
+ "10043": "x/150.glb",
+ "10044": "y/150.glb",
+ "10045": "mega/181.glb",
+ "10046": "mega/212.glb",
+ "10047": "mega/214.glb",
+ "10048": "mega/229.glb",
+ "10049": "mega/248.glb",
+ "10050": "mega/257.glb",
+ "10051": "mega/282.glb",
+ "10052": "mega/303.glb",
+ "10053": "mega/306.glb",
+ "10054": "mega/308.glb",
+ "10055": "mega/310.glb",
+ "10056": "mega/354.glb",
+ "10057": "mega/359.glb",
+ "10058": "mega/445.glb",
+ "10059": "mega/448.glb",
+ "10060": "mega/460.glb",
+ "10062": "mega/380.glb",
+ "10063": "mega/381.glb",
+ "10064": "mega/260.glb",
+ "10065": "mega/254.glb",
+ "10066": "mega/302.glb",
+ "10067": "mega/334.glb",
+ "10068": "mega/475.glb",
+ "10069": "mega/531.glb",
+ "10070": "mega/319.glb",
+ "10071": "mega/80.glb",
+ "10072": "mega/208.glb",
+ "10073": "mega/18.glb",
+ "10074": "mega/362.glb",
+ "10075": "mega/719.glb",
+ "10076": "mega/376.glb",
+ "10079": "mega/384.glb",
+ "10087": "mega/323.glb",
+ "10088": "mega/428.glb",
+ "10089": "mega/373.glb",
+ "10090": "mega/15.glb"
+};
+const revision='429de1288cea0d43f5b4f56305d2276e94239d65';
+function modelPath(id){
+ if(forms[id])return forms[id];
+ if(Number.isInteger(id)&&id>=1&&id<=1025&&!absent.has(id))return 'regular/'+id+'.glb';
+ return null;
+}
+module.exports={modelPath,revision};

@@ -11,7 +11,7 @@ module.exports=async function testBattleAction(browser,url){
   await start.click();
   const phase=(style,phase)=>page.waitForFunction(([s,p])=>{const f=document.querySelector('#battlefield');return f.dataset.technique===s&&f.dataset.phase===p},[style,phase]);
   await phase('flame','windup');assert.equal(await page.locator('#hp0').innerText(),'110/110');
-  assert.match(await page.locator('#a0 img').evaluate(el=>el.currentSrc),/fighters\/back\/25.gif/);
+  assert.match(await page.locator('#a0 img').evaluate(el=>el.currentSrc),/fighters\/front\/25.gif/);
   assert.match(await page.locator('#a1 img').evaluate(el=>el.currentSrc),/fighters\/front\/6.gif/);
   await phase('flame','impact');assert.equal(await page.locator('#hp0').innerText(),'4/110');
   assert.equal(await field.locator('.hit-points').innerText(),'−106');
