@@ -1,6 +1,6 @@
 'use strict';
 function createNarrator(lang,onState){
-  let context,source,utterance,timer,request,generation=0;
+  let context,source,utterance,timer,request,finish,generation=0;
   const synth=window.speechSynthesis;
   function unlock(){
     try{
@@ -9,17 +9,22 @@ function createNarrator(lang,onState){
       if(context&&context.state!=='running')context.resume().catch(()=>{});
     }catch{}
   }
+  function signal(state){
+    onState(state);
+    if(state==='idle'||state==='error'){finish?.();finish=null}
+  }
   function stop(){
     generation++;clearTimeout(timer);request?.abort();request=null;
     if(source){source.onended=null;try{source.stop()}catch{}source=null}
     utterance=null;
     try{synth?.cancel()}catch{}
-    onState('idle');
+    signal('idle');
   }
   function speak(text){
     stop();const id=generation;
     const phrases=text.match(/[^.!?。！？]+[.!?。！？]*|[.!?。！？]+/g)?.map(s=>s.trim()).filter(Boolean)||[];
     if(!phrases.length)return;
+    const done=new Promise(resolve=>{finish=resolve});
     onState('loading');
     async function fallback(start){
       clearTimeout(timer);
@@ -34,15 +39,15 @@ function createNarrator(lang,onState){
         if(id!==generation)return;
         if(context.state!=='running')throw Error('gesture');
         source=context.createBufferSource();source.buffer=buffer;source.connect(context.destination);
-        source.onended=()=>{if(id===generation){source=null;onState('idle')}};
+        source.onended=()=>{if(id===generation){source=null;signal('idle')}};
         source.start();onState('playing');
-      }catch{if(id===generation)onState('error')}
+      }catch{if(id===generation)signal('error')}
     }
     let voice;
     try{voice=synth?.getVoices().find(v=>v.lang.toLowerCase().split(/[-_]/)[0]===lang)}catch{}
     function next(n){
       if(id!==generation)return;
-      if(n===phrases.length){utterance=null;onState('idle');return}
+      if(n===phrases.length){utterance=null;signal('idle');return}
       if(!voice||!window.SpeechSynthesisUtterance){fallback(n);return}
       try{
         const u=new SpeechSynthesisUtterance(phrases[n]);utterance=u;
@@ -55,6 +60,7 @@ function createNarrator(lang,onState){
       }catch{fallback(n)}
     }
     next(0);
+    return done;
   }
   try{synth?.getVoices()}catch{}
   return {speak,stop,unlock};

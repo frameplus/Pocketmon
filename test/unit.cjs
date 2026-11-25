@@ -92,3 +92,16 @@ test('children’s recap uses the resolved move, defender type, turn and real da
  assert.equal(d.moves[304].type,1);assert.equal(pixilate.events.find(e=>e.damage).matchup.type,18);
  assert.match(G.explain(pixilate,[by.get(10051),by.get(25)],d)[0],/페어리 기술/);
 });
+
+test('big-hit lessons use the defender’s full HP and only actual direct damage',()=>{
+ const pair=[by.get(25),by.get(7)],result=sim.simulate([25,7],{seed});
+ const hit=result.events.find(e=>e.move===85);
+ assert.match(G.impactLesson(hit,pair,d,false),/전기.*물 타입.*2배/);
+ assert.match(G.impactLesson({...hit,crit:true},pair,d,true),/2 times.*critical/);
+ assert.equal(G.bigHit({...hit,damage:59}),false);
+ assert.equal(G.bigHit({...hit,damage:60}),true);
+ assert.equal(G.bigHit({...hit,kind:'indirect'}),false);
+ assert.equal(G.impactLesson({...hit,damage:1},pair,d,false),'');
+ const neutral={...hit,effect:'',matchup:{...hit.matchup,factor:1}};
+ assert.match(G.impactLesson(neutral,pair,d,false),/위력이 90/);
+});

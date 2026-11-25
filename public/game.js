@@ -51,17 +51,10 @@ const Game=(()=>{
    const words={strong:['효과가 굉장해!','Super effective!'],weak:['효과가 약해.','It was resisted.'],miss:['빗나갔어.','It missed.'],immune:['효과가 없어.','No effect.'],prepare:['다음 공격을 준비해!','Charging up!'],fail:['이번에는 실패했어.','It failed this turn.']};
    return lead+(words[e.effect]?.[en?1:0]||'')+(e.crit?(en?' Critical hit!':' 급소에 맞았어!'):'')+(e.damage?' −'+e.damage+' HP':'');
  }
- function explain(result,pair,d,lang='ko'){
-   const en=lang==='en',w=result.winner,events=result.events;
-   if(w<0)return [result.capped?(en?'Both friends lasted all 100 turns. Under our rules that makes a tie.':'두 친구가 100턴 동안 버텼어. 이 게임에서는 그때까지 승부가 안 나면 무승부야.'):(en?'Both friends finished on the same turn.':'두 친구가 같은 턴에 대결을 마쳤어.'),''];
-   const l=1-w, names=pair.map(p=>en?p.en:p.name), typeNames=en?englishTypes:types;
-   const moveName=e=>(en?d.moves[e.move]?.en:d.moves[e.move]?.name)||(en?'a move':'기술');
-   const moves=i=>events.filter(e=>e.i===i&&e.kind==='move');
-   const best=xs=>xs.reduce((a,e)=>!a||e.damage>a.damage?e:a,null);
-   const won=moves(w),lost=moves(l),big=best(won.filter(e=>e.damage)),reply=best(lost.filter(e=>e.damage));
-   function typeLesson(e){
+ function typeLesson(e,pair,d,en){
+     const typeNames=en?englishTypes:types;
      const m=e.matchup;if(!m||!m.defender?.length||m.defender.some(id=>!typeNames[id]))return '';
-     const t=typeNames[m.type],name=names[e.j],def=m.defender.map(id=>typeNames[id]).join(en?'/':'·');
+     const t=typeNames[m.type],name=en?pair[e.j].en:pair[e.j].name,def=m.defender.map(id=>typeNames[id]).join(en?'/':'·');
      const weaknesses=m.defender.filter(id=>d.chart[m.type-1][id-1]>1);
      const ordinary=m.defender.reduce((value,id)=>value*d.chart[m.type-1][id-1],1);
      const vulnerable=ordinary===m.factor&&weaknesses.length===1?typeNames[weaknesses[0]]:def;
@@ -79,11 +72,37 @@ const Game=(()=>{
        `${name}의 ${def} 타입에는 이 ${t} 기술이 보통 세기로 통해.`;
      return '';
    }
+ function bigHit(e){
+   return e.kind==='move' && e.damage>0 && e.damage*2>=e.max[e.j];
+ }
+ function impactLesson(e,pair,d,en){
+   if(!bigHit(e))return '';
+   const move=d.moves[e.move],name=en?move?.en:move?.name;
+   const facts=[];
+   if(e.effect==='strong'||e.effect==='weak')facts.push(typeLesson(e,pair,d,en));
+   if(e.crit)facts.push(en?'It struck a critical spot, so the hit was stronger!':'급소에 맞아서 더 강했어!');
+   if(!facts.filter(Boolean).length && move?.power>=80){
+     facts.push(en?`${name} starts with ${move.power} power. It can hit hard even without a type advantage!`:`${name} 기술은 기본 위력이 ${move.power}이야. 약점을 찌르지 않아도 강하게 맞을 수 있어!`);
+   }
+   if(!facts.filter(Boolean).length){
+     const target=en?pair[e.j].en:pair[e.j].name;
+     facts.push(en?`${target} has ${e.max[e.j]} HP when full. This move took away ${e.damage} in one go!`:`${target}의 체력은 가득 차면 ${e.max[e.j]}야. 이 기술 한 번에 ${e.damage}만큼 줄었어!`);
+   }
+   return facts.filter(Boolean).join(' ');
+ }
+ function explain(result,pair,d,lang='ko'){
+   const en=lang==='en',w=result.winner,events=result.events;
+   if(w<0)return [result.capped?(en?'Both friends lasted all 100 turns. Under our rules that makes a tie.':'두 친구가 100턴 동안 버텼어. 이 게임에서는 그때까지 승부가 안 나면 무승부야.'):(en?'Both friends finished on the same turn.':'두 친구가 같은 턴에 대결을 마쳤어.'),''];
+   const l=1-w, names=pair.map(p=>en?p.en:p.name);
+   const moveName=e=>(en?d.moves[e.move]?.en:d.moves[e.move]?.name)||(en?'a move':'기술');
+   const moves=i=>events.filter(e=>e.i===i&&e.kind==='move');
+   const best=xs=>xs.reduce((a,e)=>!a||e.damage>a.damage?e:a,null);
+   const won=moves(w),lost=moves(l),big=best(won.filter(e=>e.damage)),reply=best(lost.filter(e=>e.damage));
    function hit(e){
      const lead=en?`On turn ${e.round}, ${names[e.i]} used ${moveName(e)} and took away ${e.damage} HP.`:
        `${e.round}턴에 ${names[e.i]}의 ${moveName(e)}! 상대 체력이 한 번에 ${e.damage}만큼 줄었어.`;
      const critical=e.crit?(en?' It also landed a critical hit, which made it stronger.':' 급소에도 맞아서 더 강했어.'):'';
-     return [lead,typeLesson(e)].filter(Boolean).join(' ')+critical;
+     return [lead,typeLesson(e,pair,d,en)].filter(Boolean).join(' ')+critical;
    }
    const last=events.at(-1),wonByEffect=last?.kind==='indirect'&&last.i===l&&last.hp[l]===0;
    let whyWon=big?hit(big):en?`${names[w]} stayed in the battle through turn ${last?.round||1}.`:`${names[w]} 쪽은 ${last?.round||1}턴까지 버텼어.`;
@@ -102,7 +121,7 @@ const Game=(()=>{
    }else if(immune){
      whyLost=en?`${names[l]} tried ${moveName(immune)} on turn ${immune.round}. `:`${immune.round}턴에 ${names[l]} 쪽은 ${moveName(immune)} 기술을 썼어. `;
      whyLost+=immune.reason==='ability: Wonder Guard'?(en?'Wonder Guard only lets moves that hit a weakness through. This move was blocked.':'상대의 불가사의부적은 약점을 찌르는 공격만 통하게 해. 이 기술은 막혔어.'):
-       typeLesson(immune)||(en?'The move was blocked, so that attack took away no HP.':'이 공격은 막혀서 상대 체력을 하나도 줄이지 못했어.');
+       typeLesson(immune,pair,d,en)||(en?'The move was blocked, so that attack took away no HP.':'이 공격은 막혀서 상대 체력을 하나도 줄이지 못했어.');
    }else if(!lost.length){
      whyLost=en?`${names[w]} moved first, so ${names[l]} never got to use a move.`:`${names[w]} 쪽이 먼저 공격해서 ${names[l]}에게는 기술을 쓸 차례가 오지 않았어.`;
    }else if(resisted){whyLost=hit(resisted)}
@@ -112,7 +131,7 @@ const Game=(()=>{
      const remaining=reply.hp[w];
      whyLost=en?`Even its biggest hit, ${moveName(reply)} on turn ${reply.round}, left ${names[w]} with ${remaining} HP.`:
        `${names[l]}의 가장 큰 공격은 ${reply.round}턴에 쓴 기술, ${moveName(reply)}! 그때도 ${names[w]}에게는 체력이 ${remaining} 남아서 계속 싸울 수 있었어.`;
-     if(reply.effect==='strong')whyLost+=' '+typeLesson(reply);
+     if(reply.effect==='strong')whyLost+=' '+typeLesson(reply,pair,d,en);
    }else{
      const e=lost.find(e=>e.effect==='prepare')||lost[0];
      whyLost=en?`On turn ${e.round}, ${names[l]} used ${moveName(e)}. ${e.effect==='prepare'?'It needed a turn to charge.':'None of its moves dealt direct damage in this battle.'}`:
@@ -120,6 +139,6 @@ const Game=(()=>{
    }
    return [whyWon,whyLost]
  }
- return {types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,describe,explain}
+ return {types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,describe,explain,bigHit,impactLesson}
 })();
 if(typeof module!=='undefined')module.exports=Game;else window.Game=Game;

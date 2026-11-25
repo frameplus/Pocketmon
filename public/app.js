@@ -14,6 +14,7 @@
  let powerOrder=false;
  const badges=p=>p.types.map(t=>`<span class="badge">${G.icons[t]} ${types[t]}</span>`).join('');
  const img=(p,extra='')=>`<img src="/art/${p.id}" alt="${esc(p.name)}" ${extra}>`;
+ let dismissLesson;
  let readingState='idle';
  const narrator=createNarrator(lang,state=>{
    readingState=state;
@@ -25,7 +26,7 @@
    }
    if(state==='error'&&(activePage!=='battle'||$('result').hidden))notify(t('음성을 재생하지 못했어. 기기 소리를 확인해 줘.','Could not play the voice. Check your device sound.'));
  });
- function say(s){if(!mute&&!rec)narrator.speak(s)}
+ function say(s){if(!mute&&!rec)return narrator.speak(s)}
  function unlockSound(){if(!mute)narrator.unlock()}
  function notify(s,hold=false){clearTimeout(noticeTimer);$('speech').textContent=s;$('speech').hidden=false;if(!hold)noticeTimer=setTimeout(()=>$('speech').hidden=true,5500)}
  function markMic(on){
@@ -75,7 +76,7 @@
  }
  function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${img(p)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
-  narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
+  dismissLesson?.();narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
   slot(0);slot(1);$('odds').replaceChildren();forecastVersion=-1;
   $('actors').innerHTML=actors();$('round').textContent=t('준비 완료',"Ready");$('log').textContent=pair.map(x=>x.name).join(t(' 대 '," vs. "))+'!';$('fx').textContent='';$('fx').className='';
  }
@@ -104,6 +105,21 @@
   });
  }
  const pause=ms=>new Promise(r=>setTimeout(r,ms));
+ async function showHitLesson(event){
+  const panel=$('hit-lesson'),text=G.impactLesson(event,pair,d,en);
+  $('hit-reason').textContent=text;panel.hidden=false;
+  let timer,release;
+  const dismissed=new Promise(resolve=>{release=resolve});
+  function close(){
+    clearTimeout(timer);panel.hidden=true;dismissLesson=null;
+    $('continue-hit').onclick=null;narrator.stop();release();
+  }
+  dismissLesson=close;$('continue-hit').onclick=close;
+  timer=setTimeout(close,18000);
+  // Keep the text readable when speech is muted or unavailable.
+  await Promise.race([dismissed,Promise.all([pause(3200),say(text)])]);
+  if(dismissLesson===close)close();
+ }
  async function battle(){
   if(busy)return;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('start').disabled=true;
   $('start').textContent=t('대결 중…','Battling…');$('result').hidden=true;$('prediction').open=false;
@@ -117,7 +133,8 @@
   if(id!==epoch)return;
   updateHP(result.initial,result.initial);
   const events=result.events,long=events.length>22;
-  const highlights=long?events.filter((e,k)=>k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
+  const lessonIndex=events.findIndex(G.bigHit);
+  const highlights=long?events.filter((e,k)=>k===lessonIndex||k===lessonIndex-1||k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
   for(const e of highlights){
    if(id!==epoch)return;const a=$('a'+e.i),b=$('a'+e.j),fx=$('fx'),m=d.moves[e.move];
    for(let i of [0,1])$('a'+i).classList.remove('hit','strike');
@@ -128,7 +145,8 @@
     fx.className='shot '+(m.priority>0?'swift':m.category===2?'impact':m.power>=90?'surge':'beam')+(e.i?' reverse':'');
    }
    $('round').textContent=(long?t('주요 장면 · ','Highlights · '):'')+(en?'Turn '+e.round:e.round+'턴');
-   $('log').textContent=G.describe(e,pair,d,en);updateHP(e.hp,e.max);await pause(650)
+   $('log').textContent=G.describe(e,pair,d,en);updateHP(e.hp,e.max);
+   if(e===events[lessonIndex])await showHitLesson(e);else await pause(650)
   }
   if(id!==epoch)return;
   const w=result.winner,why=G.explain(result,pair,d,lang);
