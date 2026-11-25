@@ -167,7 +167,10 @@
    if(e.kind==='move'&&m){
     $('log').textContent=en?`${pair[e.i].name} used ${m.name}!`:`${pair[e.i].name}의 ${m.name}!`;
     await combat.play(e,m,{typeName:types[e.matchup?.type||m.type],impact(){
-     if(id===epoch){updateHP(e.hp,e.max);$('log').textContent=description}
+     if(id===epoch){
+      updateHP(e.hp,e.max);$('log').textContent=description;
+      if(e.damage>0&&!mute&&!rec&&readingState==='idle')narrator.impactSound(e.matchup?.type||m.type);
+     }
     }});
    }else{
     $('log').textContent=description;updateHP(e.hp,e.max);await pause(500);
