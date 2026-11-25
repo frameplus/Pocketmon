@@ -1,0 +1,50 @@
+name: Arena verification
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the server cache
+        run: python3 scripts/cache.py
+      - run: npm test
+      - run: npm install --no-save --ignore-scripts playwright@1.55.0
+      - run: google-chrome --version
+        name: Verify installed Chrome
+      - name: Test preview in Chromium
+        run: CHROME_BIN=/usr/bin/google-chrome SCREENSHOTS=1 node test/browser.cjs
+      - name: Prepare local Korean conversation model
+        run: |
+          mkdir -p "$RUNNER_TEMP/friend"
+          cd "$RUNNER_TEMP/friend"
+          python3 "$GITHUB_WORKSPACE/scripts/model.py"
+      - name: Verify conversation with local inference
+        run: FRIEND_BINARY="$RUNNER_TEMP/friend/build/bin/llama-server" FRIEND_MODEL="$RUNNER_TEMP/friend/friend.gguf" node test/model.cjs
+      - name: Wait for this release on Railway and test its public address
+        if: github.event_name == 'push'
+        env:
+          ARENA_URL: https://pocketmon-production-42a1294c.up.railway.app
+          RELEASE: ${{ github.sha }}
+        run: |
+          for attempt in $(seq 1 90); do
+            if curl -fsS "$ARENA_URL/health" | jq -e --arg sha "$RELEASE" '.release == $sha'; then
+              CHROME_BIN=/usr/bin/google-chrome SCREENSHOTS=1 node test/browser.cjs
+              exit $?
+            fi
+            sleep 10
+          done
+          exit 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arena-browser-screenshots
+          path: screenshots/

@@ -1,1 +1,32 @@
-const http=require('node:http'),fs=require('node:fs');let cache;http.createServer(async(req,res)=>{try{let p=new URL(req.url,'http://localhost').pathname;if(p==='/names'){if(!cache){let csv=await fetch('https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/pokemon_species_names.csv').then(r=>{if(!r.ok)throw Error();return r.text()});cache=JSON.stringify(csv.split(/\r?\n/).map(x=>x.split(',')).filter(a=>a[1]==='3'&&+a[0]<=1025).map(a=>[+a[0],a[2]]))}res.setHeader('Content-Type','application/json; charset=utf-8');return res.end(cache)}if(/^\/type\/\d+$/.test(p)){let id=+p.split('/').pop();let a=await fetch('https://pokeapi.co/api/v2/pokemon/'+id).then(r=>r.json());res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({types:a.types.map(t=>t.type.name),stats:Object.fromEntries(a.stats.map(t=>[t.stat.name,t.base_stat])),moves:a.moves.slice(0,30).map(t=>t.move.name)}))}if(/^\/art\/\d+$/.test(p)){let id=+p.split('/').pop();if(id<1||id>1025){res.statusCode=404;return res.end()}let r=await fetch('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/'+id+'.png');res.statusCode=r.status;res.setHeader('Content-Type','image/png');res.setHeader('Cache-Control','public,max-age=86400');return res.end(Buffer.from(await r.arrayBuffer()))}res.setHeader('Content-Type','text/html; charset=utf-8');res.end(fs.readFileSync('index.html'))}catch(e){res.statusCode=502;res.end('Unavailable')}}).listen(process.env.PORT||3000,'0.0.0.0');
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:child_process');
+const pub=path.join(__dirname,'public'),d=JSON.parse(fs.readFileSync(path.join(pub,'dex.json'))),by=new Map(d.pokemon.map(p=>[p.id,p])),answer=require('./friend.js')(d);
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.png':'image/png','.woff2':'font/woff2','.json':'application/json; charset=utf-8'};
+let model=null,active=0;
+if(process.env.FRIEND_BINARY&&process.env.FRIEND_MODEL){
+ model=spawn(process.env.FRIEND_BINARY,['-m',process.env.FRIEND_MODEL,'--host','127.0.0.1','--port','8089','-c','1024','-t','2','-np','1','--log-disable'],{stdio:'ignore'});
+ model.on('error',()=>{model=null});model.on('exit',()=>{model=null})
+}
+const server=http.createServer(async(req,res)=>{
+ const send=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body))};
+ try{
+  const p=new URL(req.url,'http://localhost').pathname;
+  if(req.method==='POST'&&p==='/api/friend'){
+   if(req.headers.origin&&new URL(req.headers.origin).host!==req.headers.host)return send(403,{error:'origin'});
+   if(active>=4)return send(429,{error:'잠시 뒤에 다시 말해 줘.'});
+   const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>4096)return send(413,{error:'too long'});chunks.push(chunk)}
+   let input;try{input=JSON.parse(Buffer.concat(chunks))}catch{return send(400,{error:'invalid'})}
+   if(!input||typeof input.text!=='string'||!input.text.trim()||input.text.length>250||!Array.isArray(input.pair)||input.pair.length!==2||!input.pair.every(i=>by.has(i)))return send(400,{error:'invalid question'});
+   active++;try{return send(200,await answer({text:input.text,pair:input.pair,focus:Number(input.focus),lastIntent:String(input.lastIntent||'').slice(0,18)},Boolean(model)))}finally{active--}
+  }
+  if(!['GET','HEAD'].includes(req.method))return send(405,{error:'method'});
+  if(p==='/health')return send(200,{version:2,release:process.env.RAILWAY_GIT_COMMIT_SHA||null,species:1025,mega:by.size-1025});
+  if(p==='/names')return send(200,d.pokemon.filter(x=>x.id===x.dex).map(x=>[x.id,x.name]));
+  if(/^\/type\/\d+$/.test(p)){const m=by.get(Number(p.split('/').pop())),types=['','normal','fighting','flying','poison','ground','rock','bug','ghost','steel','fire','water','grass','electric','psychic','ice','dragon','dark','fairy'];return m?send(200,{types:m.types.map(t=>types[t]),stats:Object.fromEntries(['hp','attack','defense','special-attack','special-defense','speed'].map((s,i)=>[s,m.stats[i]])),moves:m.moves.map(i=>d.moves[i].name)}):send(404,{error:'unknown'})}
+  const art=p.match(/^\/art\/(\d+)$/),index=p==='/'||p==='/index.html',file=index?path.join(__dirname,'index.html'):path.join(pub,art?'art/'+Number(art[1])+'.png':p.slice(1));
+  if(!index&&!file.startsWith(pub+'/'))return send(404,{error:'unknown'});
+  const stat=await fs.promises.stat(file);if(!stat.isFile())return send(404,{error:'unknown'});
+  res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'text/plain','Content-Length':stat.size,'Cache-Control':art?'public,max-age=604800':'no-cache','X-Content-Type-Options':'nosniff','Permissions-Policy':'camera=(), microphone=(self)'});
+  if(req.method==='HEAD')return res.end();fs.createReadStream(file).on('error',()=>res.destroy()).pipe(res)
+ }catch{if(!res.headersSent)send(404,{error:'unavailable'});else res.destroy()}
+});
+server.listen(process.env.PORT||3000,'0.0.0.0');process.on('SIGTERM',()=>{model?.kill();server.close(()=>process.exit())});
