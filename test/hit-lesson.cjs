@@ -8,7 +8,7 @@ module.exports=async function testBattleAction(browser,url){
   const events=[strike(1,53,106,[4,153],10,[13],1),strike(0,85,80,[4,73],13,[10,3],2),{...strike(1,53,4,[0,73],10,[13],1),round:2}];
   await page.route('**/api/battle/25/6',r=>r.fulfill({json:{winner:1,initial:[110,153],events}}));
   await page.goto(url);const start=page.locator('#start'),field=page.locator('#battlefield');
-  
+
   await page.waitForFunction(()=>document.querySelector('#battlefield').dataset.mesh0==='25'&&document.querySelector('#battlefield').dataset.mesh1==='6');
   // Inspect actual rendered objects through Three's scene callback, across consecutive ranged moves.
   await page.evaluate(async()=>{

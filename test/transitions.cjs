@@ -8,7 +8,7 @@ module.exports=async function testTransitions(browser,url){
   await page.route('**/models/25.glb',route=>++attempts===1
    ?route.fulfill({status:503,body:'temporarily unavailable'}):route.continue());
   await page.goto(url);
-  
+
   await page.waitForFunction(()=>document.querySelector('#battlefield').dataset.mesh1==='6');
   await page.locator('#start').click();
   await page.locator('#celebration').waitFor({timeout:60000});

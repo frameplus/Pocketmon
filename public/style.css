@@ -90,7 +90,7 @@ body[data-phase=arena] :is(header,footer){display:none}
 }
 @media(orientation:portrait) and (max-width:1024px){
  #arena #battlefield{width:min(100%,calc((100dvh - 208px) * .8));aspect-ratio:4/5}
- #battlefield .actor:is(.left,.right){--size:calc(31dvh + 7dvh * var(--fighter-size));--height:var(--size)}
+ #battlefield .actor:is(.left,.right){--height:calc(34dvh + 6dvh * var(--fighter-size));--size:min(98cqw,calc(var(--height) * var(--aspect,1)))}
 }
 @media(max-height:480px) and (orientation:landscape){
  #arena{display:grid;grid-template-columns:minmax(175px,.55fr) auto;grid-template-rows:auto auto auto;align-content:center;gap:4px}
@@ -100,3 +100,7 @@ body[data-phase=arena] :is(header,footer){display:none}
 @media(prefers-reduced-motion:reduce){.onair{animation:none}}
 main:has(#battle:not([hidden]) #chooser:not([hidden])){min-height:0}
 body:has(#battle:not([hidden]) #chooser:not([hidden])) footer{max-width:620px;margin-top:20px}
+
+@media(orientation:portrait) and (max-width:1024px){
+ #battlefield .actor img{left:clamp(0px,calc(var(--center) - var(--size)/2),calc(100% - var(--size)))}
+}

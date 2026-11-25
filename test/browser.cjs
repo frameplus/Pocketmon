@@ -56,7 +56,7 @@ try{
   assert.equal(await el('#catalog button').count(),2);assert.match(await el('#catalog').innerText(),/Mega Charizard X/);
   assert.equal(await el('#catalog .place').nth(0).innerText(),await el('#catalog .place').nth(1).innerText());
   await el('#kindFilter').selectOption('legendary');await el('[data-type="14"]').click();assert.match(await el('#catalog').innerText(),/Mewtwo/);
-  await el('#catalog button').first().click();await el('#theirs').click();assert.equal(await name(1),'Mewtwo');
+  await el('[data-card="150"]').click();await el('#theirs').click();assert.equal(await name(1),'Mewtwo');
   await menu('friend');await el('#examples button').nth(1).click();await page.waitForFunction(()=>document.querySelector('#talk').innerText.includes('Water Gun'));
   await page.waitForFunction(()=>/Visitors today · [0-9]/.test(document.getElementById('visits').textContent));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   assert.deepEqual(errors,[]);await page.close();console.log('PASS',width,height,'one tap, zero scroll, ratio, skip/rematch, cards, filters, voice controls, PIN and language');

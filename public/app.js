@@ -33,7 +33,7 @@
  function unlockSound(){if(!mute)narrator.unlock()}
  function notify(s,hold=false){if($('pickerStatus'))$('pickerStatus').textContent=s;clearTimeout(noticeTimer);$('speech').textContent=s;$('speech').hidden=false;if(!hold)noticeTimer=setTimeout(()=>$('speech').hidden=true,5500)}
  function markMic(on){
-  document.querySelectorAll('.slotmic').forEach((b,i)=>{const listening=on&&activePage==='battle'&&i===listeningSide;b.classList.toggle('onair',listening);b.setAttribute('aria-pressed',String(listening))});
+  document.querySelectorAll('.slotmic').forEach(b=>{const listening=on&&activePage==='battle'&&target===listeningSide;b.classList.toggle('onair',listening);b.setAttribute('aria-pressed',String(listening))});
   document.querySelectorAll('[data-mic]').forEach(b=>{b.classList.toggle('onair',on);b.textContent=on?t('● 듣고 있어요!',"● Listening!"):b.closest('#friend')?t('🎙 말하기',"🎙 Talk"):t('🎙 이름 말하기',"🎙 Say a name")})}
  function cancelVoice(){voiceEpoch++;if(rec){let old=rec;rec=null;try{old.abort()}catch{}}narrator.stop();markMic(false);$('speech').hidden=true}
  function mic(side=target){
@@ -69,7 +69,7 @@
  }
  function picker(i){
   target=i;
-  openModal(`<h2>${sideName(i)} ${t('바꾸기','· Choose')}</h2>
+  openModal(`<h2 tabindex="-1" autofocus>${sideName(i)} ${t('바꾸기','· Choose')}</h2>
    <input id="pickQuery" aria-label="${t('포켓몬 검색','Find Pokémon')}" placeholder="${t('이름이나 초성','Name or number')}" autocomplete="off">
    <div id="suggest" class="suggest"></div><div class="pick-tools"><button class="slotmic" data-mic>${t('🎙 이름 말하기','🎙 Say a name')}</button>
    <button id="draw">${t('랜덤 카드 뽑기','Draw random card')}</button><button id="browse">${t('도감에서 고르기','Pick from Pokédex')}</button></div><p id="pickerStatus" role="status"></p>`,'picker');
@@ -107,9 +107,11 @@
    }
    // Keep a little space around moving ears and tails in animated GIFs.
    const inset=right<left?'none':'inset('+[top,95-right,95-bottom,left].map(n=>Math.max(0,n-4)*100/96+'%').join(' ')+')';
-   spriteCrops.set(source,inset);
+   const bounds=right>=left?[right-left+1,bottom-top+1]:[96,96];
+   spriteCrops.set(source,{inset,aspect:image.naturalWidth/image.naturalHeight*(bounds[0]+8)/(bounds[1]+8)});
   }
-  image.style.objectViewBox=spriteCrops.get(source);
+  const {inset,aspect}=spriteCrops.get(source);image.style.objectViewBox=inset;
+  image.closest('.actor').style.setProperty('--aspect',String(aspect));
  },true);
  function actors(){
   const sizes=G.fieldSizes(pair);
@@ -160,7 +162,10 @@
    }
   };
  }
- $('speed').onclick=()=>{if(busy)$('speed').setAttribute('aria-pressed',String(playback.toggle()===2))};
+ $('battlefield').addEventListener('animationstart',e=>{
+  if(busy&&playback?.rate===2)for(const anim of e.target.getAnimations())anim.updatePlaybackRate(2);
+ });
+ $('speed').onclick=()=>{if(busy){const rate=playback.toggle();$('speed').setAttribute('aria-pressed',String(rate===2));stadium?.setRate(rate)}};
  $('skip').onclick=()=>{if(busy){playback.stop();combat.clear()}};
  $('exit').onclick=()=>{refresh();$('start').focus()};
  async function entrance(id){
@@ -179,7 +184,7 @@
  async function battle(){
   if(busy)return;questionEpoch++;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('celebration').hidden=true;$('start').disabled=true;
   phase('arena');$('exit').focus({preventScroll:true});
-  playback=playbackClock();$('speed').setAttribute('aria-pressed','false');
+  playback=playbackClock();stadium?.setRate(1);$('speed').setAttribute('aria-pressed','false');
   actors();updateHP(pair.map(G.hp),pair.map(G.hp));
   let result;
   try{[result]=await Promise.all([matchRequest('battle','POST'),entrance(id),

@@ -123,7 +123,7 @@ export function createStadium(field){
  const rim=new T.DirectionalLight(0xe0eeff,.50);rim.position.set(5,4,-3);scene.add(rim);
  const pads=standardPads.map(p=>p.clone()),marks=pads.map(()=>new T.Group());paintArena(scene,marks);
  const loader=new GLTFLoader(),draco=new DRACOLoader();draco.setDecoderPath('/vendor/three/examples/jsm/libs/draco/gltf/');draco.setWorkerLimit(1);loader.setDRACOLoader(draco);
- let speciesSizes=[1,1],factors=[1,1];
+ let speciesSizes=[1,1],factors=[1,1],rate=1;
  const slots=[null,null],ids=[0,0],requests=[null,null],jobs=[null,null],shadowMap=document.createElement('canvas');
  shadowMap.width=shadowMap.height=64;const cx=shadowMap.getContext('2d'),grad=cx.createRadialGradient(32,32,1,32,32,32);
  grad.addColorStop(0,'rgba(27,52,67,.48)');grad.addColorStop(.56,'rgba(27,52,67,.25)');grad.addColorStop(1,'rgba(27,52,67,0)');cx.fillStyle=grad;cx.fillRect(0,0,64,64);
@@ -268,7 +268,7 @@ export function createStadium(field){
    s.base.scale.setScalar(Math.max(.001,size)*factors[i]);
    shadows[i].scale.setScalar(factors[i]);
    if(!still.matches){
-    s.mixer.update(dt);
+    s.mixer.update(dt*rate);
     const beat=time*.0043+i*2.2,step=(1-Math.cos(beat))*.5;
     s.base.position.y+=step*(s.idle ? .025 : .09);
     s.base.position.x+=Math.sin(beat)*.055;
@@ -312,5 +312,5 @@ export function createStadium(field){
  document.addEventListener('visibilitychange',wake);
  field.dataset.world='on';
  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();stopped=true;cancelAnimationFrame(frame);delete field.dataset.world;delete field.dataset.mesh0;delete field.dataset.mesh1;observer.disconnect();sizeObserver.disconnect();requests.forEach(c=>c?.abort());document.removeEventListener('visibilitychange',wake)});
- return {select,move,anchors,finish(side){winner=side;finished=performance.now();wake()}};
+ return {select,move,anchors,setRate(value){rate=value},finish(side){winner=side;finished=performance.now();wake()}};
 }
