@@ -3,6 +3,12 @@ const Game=(()=>{
  const englishTypes=['','Normal','Fighting','Flying','Poison','Ground','Rock','Bug','Ghost','Steel','Fire','Water','Grass','Electric','Psychic','Ice','Dragon','Dark','Fairy'];
  const englishStats=['HP','Attack','Defense','Sp. Atk','Sp. Def','Speed'];
  const total=p=>p.stats.reduce((sum,n)=>sum+n,0);
+ // Compress large Pokédex height differences so even the smallest partner is visible on a phone.
+ function fieldSizes(pair){
+   const heights=pair.map(p=>p.heightDm>0?p.heightDm:10),largest=Math.max(...heights);
+   const frame=.74+.29*largest/(largest+12);
+   return heights.map(h=>frame*(.30+.70*Math.pow(h/largest,.70)));
+ }
  function powerRanks(all){
    const sorted=[...all].sort((a,b)=>total(b)-total(a)||a.dex-b.dex||a.id-b.id);
    const ranks=new Map();let previous=-1,rank=0;
@@ -152,6 +158,6 @@ const Game=(()=>{
    }
    return [whyWon,whyLost]
  }
- return {types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,describe,explain,bigHit,impactLesson}
+ return {fieldSizes,types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,describe,explain,bigHit,impactLesson}
 })();
 if(typeof module!=='undefined')module.exports=Game;else window.Game=Game;

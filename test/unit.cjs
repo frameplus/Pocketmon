@@ -13,6 +13,16 @@ function fixture(ids,moves){
  const pokemon=ids.map((id,i)=>({...by.get(id),moves:moves[i]}));
  return makeSimulator({...d,pokemon});
 }
+test('all forms have a Pokédex height, and battle size follows the matchup on either side',()=>{
+ assert.ok(d.pokemon.every(p=>Number.isInteger(p.heightDm)&&p.heightDm>0));
+ for(const [small,big,heights] of [[25,6,[4,17]],[1,3,[7,20]],[50,321,[2,145]],[6,10035,[17,17]]]){
+  const pair=[by.get(small),by.get(big)];
+  assert.deepEqual(pair.map(p=>p.heightDm),heights);
+  const sizes=G.fieldSizes(pair);
+  assert.deepEqual(G.fieldSizes([...pair].reverse()),[sizes[1],sizes[0]]);
+  assert.ok(heights[0]===heights[1]?sizes[0]===sizes[1]:sizes[0]<sizes[1]);
+ }
+});
 test('base HP and level-50 HP are distinct, including Shedinja and Mega forms',()=>{
  for(const [id,base,max] of [[25,35,110],[6,78,153],[10034,78,153],[129,20,95],[292,1,1],[1024,90,170]]){
   assert.equal(by.get(id).stats[0],base);

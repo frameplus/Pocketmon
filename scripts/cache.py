@@ -44,7 +44,7 @@ for r in rows("pokemon"):
     if i not in forms and (i!=b or i>1025):continue
     en=names[b]["9"]
     if i in forms: en=("Mega "+en+" "+r["identifier"].split("-mega")[-1].strip("-").upper()).strip()
-    dex[i]=dict(id=i,dex=b,name=forms.get(i,names[b]["3"]),en=en,region=region_of(b),legendary=species[b]["is_legendary"]=="1",mythical=species[b]["is_mythical"]=="1",stats=[0]*6,types=[],moves=[])
+    dex[i]=dict(id=i,dex=b,heightDm=int(r["height"]),name=forms.get(i,names[b]["3"]),en=en,region=region_of(b),legendary=species[b]["is_legendary"]=="1",mythical=species[b]["is_mythical"]=="1",stats=[0]*6,types=[],moves=[])
 for r in rows("pokemon_stats"):
     i=int(r["pokemon_id"])
     if i in dex: dex[i]["stats"][int(r["stat_id"])-1]=int(r["base_stat"])
