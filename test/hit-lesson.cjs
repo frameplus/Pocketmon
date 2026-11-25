@@ -8,6 +8,22 @@ module.exports=async function testBattleAction(browser,url){
   const events=[strike(1,53,106,[4,153],10,[13],1),strike(0,85,80,[4,73],13,[10,3],2),{...strike(1,53,4,[0,73],10,[13],1),round:2}];
   await page.route('**/api/battle/25/6',r=>r.fulfill({json:{winner:1,initial:[110,153],events}}));
   await page.goto(url);const start=page.locator('#start'),field=page.locator('#battlefield');
+  await field.scrollIntoViewIfNeeded();
+  await page.waitForFunction(()=>document.querySelector('#battlefield').dataset.mesh0==='25'&&document.querySelector('#battlefield').dataset.mesh1==='6');
+  // Inspect actual rendered objects through Three's scene callback, across consecutive ranged moves.
+  await page.evaluate(async()=>{
+   const {Scene}=await import('three'),original=Scene.prototype.onBeforeRender;
+   window.tilt={peak:[0,0],latest:[null,null]};
+   Scene.prototype.onBeforeRender=function(...args){
+    original.apply(this,args);
+    for(let i=0;i<2;i++){
+     const fighter=this.getObjectByName('fighter-'+i);if(!fighter)continue;
+     const angle=Math.abs(fighter.rotation.z);
+     window.tilt.peak[i]=Math.max(window.tilt.peak[i],angle);
+     window.tilt.latest[i]=angle;
+    }
+   };
+  });
   await start.click();
   const phase=(style,phase)=>page.waitForFunction(([s,p])=>{const f=document.querySelector('#battlefield');return f.dataset.technique===s&&f.dataset.phase===p},[style,phase]);
   await phase('flame','windup');assert.equal(await page.locator('#hp0').innerText(),'110/110');
@@ -17,6 +33,12 @@ module.exports=async function testBattleAction(browser,url){
   assert.equal(await field.locator('.hit-points').innerText(),'−106');
   await phase('lightning','windup');assert.equal(await page.locator('#hp1').innerText(),'153/153');
   await phase('lightning','impact');assert.equal(await page.locator('#hp1').innerText(),'73/153');
+  await page.waitForFunction(()=>document.querySelector('#round').textContent==='승부가 났어!');
+  assert.equal(await page.locator('#hp0').innerText(),'0/110');
+  assert.ok(await page.locator('#result').isHidden());
+  await page.waitForFunction(()=>window.tilt.latest.every(v=>v===0));
+  const peaks=await page.evaluate(()=>window.tilt.peak);
+  assert.ok(peaks.every(v=>v>0&&v<=0.055001),'each move leans briefly by at most 3.2 degrees');
   await page.locator('#result h2').waitFor();
   assert.match(await page.locator('#result').innerText(),/화염방사.*106[\s\S]*위력이 90/);
   assert.equal(await page.locator('#hit-lesson,#continue-hit').count(),0);
