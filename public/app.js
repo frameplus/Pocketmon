@@ -63,7 +63,7 @@
  }
  function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${img(p)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
-  epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=true;
+  epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
   slot(0);slot(1);battlePlan=G.plan(pair,d);const odds=G.odds(battlePlan),lead=odds[0]>=odds[1]?0:1,move=battlePlan.lists[lead][0];
   const note=odds[0]===odds[1]?t('두 친구의 기회가 비슷해!',"Both have a similar chance!"):pair[lead].name+t(' 쪽이 유리해. '," has the edge. ")+(move&&move.factor>1?d.moves[move.id].name+t(' 기술로 약점을 노릴 수 있어.'," can hit a weakness."):pair[lead].stats[5]>pair[1-lead].stats[5]?t('스피드가 더 빨라.',"It has the higher Speed stat."):t('연습 대결에서 더 자주 이겼어.',"It won more practice battles."));
   $('odds').innerHTML=`<div class="row"><b>${esc(pair[0].name)} ${odds[0]}%</b><b>${odds[1]}% ${esc(pair[1].name)}</b></div><div class="meter"><i style="width:${odds[0]}%"></i></div><p class="hint">${t("400번 연습 결과","400 practice battles")} · ${esc(note)}</p>`;

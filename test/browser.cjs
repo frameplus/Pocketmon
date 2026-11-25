@@ -21,8 +21,12 @@ try{
   }
   const currentCards=()=>page.locator('.pair .art img').evaluateAll(imgs=>imgs.map(img=>img.getAttribute('src')));
   let previousCards=await currentCards();
+  const prediction=page.locator('#prediction'),details=page.locator('#odds');
   for(let draw=0;draw<2;draw++){
+    assert.equal(await prediction.getAttribute('open'),null);assert.ok(await details.isHidden());
+    await prediction.locator('summary').click();assert.ok(await details.isVisible());
     await page.locator('#draw'+draw).click();
+    assert.ok(await details.isHidden());
     const next=await currentCards();
     assert.equal(new Set(next).size,2);
     assert.ok(!previousCards.includes(next[draw]));assert.equal(next[1-draw],previousCards[1-draw]);
