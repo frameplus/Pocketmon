@@ -13,14 +13,20 @@ try{
     const brand=await page.locator('.brand').boundingBox(),lang=await page.locator('#language').boundingBox();
     assert.ok(brand.x+brand.width<=lang.x,'Brand stays on the left of language settings');
   }
-  const drawButton=page.getByRole('button',{name:'랜덤 카드 뽑기',exact:true});
+  await page.locator('#trainer0').fill('번개 팀');await page.locator('#trainer1').fill('별빛 팀');
+  for(const i of [0,1]){
+    const card=await page.locator('#slot'+i+' .card').boundingBox();
+    const search=await page.locator('#q'+i).boundingBox(),draw=await page.locator('#draw'+i).boundingBox();
+    assert.ok(search.y>=card.y+card.height-1&&draw.y>=search.y+search.height-1);
+  }
   const currentCards=()=>page.locator('.pair .art img').evaluateAll(imgs=>imgs.map(img=>img.getAttribute('src')));
   let previousCards=await currentCards();
   for(let draw=0;draw<2;draw++){
-    await drawButton.click();
+    await page.locator('#draw'+draw).click();
     const next=await currentCards();
     assert.equal(new Set(next).size,2);
-    assert.ok(next.every(card=>!previousCards.includes(card)));
+    assert.ok(!previousCards.includes(next[draw]));assert.equal(next[1-draw],previousCards[1-draw]);
+    assert.equal(await page.locator('#trainer0').inputValue(),'번개 팀');assert.equal(await page.locator('#trainer-tag1').innerText(),'별빛 팀');
     assert.deepEqual(await page.locator('#actors img').evaluateAll(imgs=>imgs.map(img=>img.getAttribute('src'))),next);
     assert.equal(await page.locator('#round').innerText(),'준비 완료');
     assert.ok(await page.locator('#start').isEnabled());
@@ -44,7 +50,7 @@ try{
   await page.locator('#settings').click();await page.locator('#newpin').fill('1357');await page.locator('#setpin button').click();await page.waitForFunction(()=>document.querySelector('#pinmsg').textContent.includes('저장'));await page.locator('#close').click();await page.locator('#settings').click();await page.locator('#pin').fill('1357');await page.locator('#unlock button').click();await page.locator('#newpin').waitFor();await page.locator('#close').click();
   await page.locator('nav a[href="#battle"]').click();if(process.env.SCREENSHOTS){fs.mkdirSync('screenshots',{recursive:true});await page.screenshot({path:`screenshots/arena-${width}.png`,fullPage:true})}
   await page.locator('#language').click();await page.waitForFunction(()=>document.documentElement.lang==='en'&&document.querySelector('#slot0 h2')?.textContent==='Terapagos');
-  assert.equal(await page.locator('#slot0 .region-tag').innerText(),'Paldea');assert.match(await page.locator('#slot0 .stats').innerText(),/Attack/);assert.equal(await page.locator('#random').innerText(),'Draw random cards');assert.ok(await page.locator('#slot0 .move').first().isVisible());
+  assert.equal(await page.locator('#slot0 .region-tag').innerText(),'Paldea');assert.match(await page.locator('#slot0 .stats').innerText(),/Attack/);assert.equal(await page.locator('#draw1').innerText(),'Draw random card');assert.equal(await page.locator('#trainer1').inputValue(),'별빛 팀');assert.ok(await page.locator('#slot0 .move').first().isVisible());
   await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});assert.match(await page.locator('#result').innerText(),/wins!/);assert.doesNotMatch(await page.locator('#result').innerText(),/[가-힣]/);
   await page.locator('nav a[href="#dex"]').click();await page.locator('#regionFilter').selectOption('kanto');await page.locator('#kindFilter').selectOption('mega');await page.locator('#typeFilter').selectOption('10');await page.locator('#powerOrder').click();
   assert.equal(await page.locator('#catalog button').count(),2);assert.match(await page.locator('#catalog').innerText(),/Mega Charizard X/);

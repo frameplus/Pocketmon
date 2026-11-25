@@ -16,7 +16,7 @@ nav a { min-width: 64px; text-align: center; }
 nav a.active { color: #174cb2; background: #edf3ff; }
 .title { margin: 28px 0 20px; }
 .title h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.15; }
-#random { display: inline-flex; align-items: center; justify-content: center; gap: 10px; background: #fff; border-color: #b7cbea; color: #204d9c; }
+.draw-card { display: inline-flex; align-items: center; justify-content: center; gap: 10px; background: #fff; border-color: #b7cbea; color: #204d9c; }
 .deck-icon { width: 14px; height: 18px; position: relative; display: inline-block; border: 2px solid currentColor; border-radius: 3px; transform: rotate(7deg); }
 .deck-icon::before { content: ''; position: absolute; inset: 1px 4px -5px -6px; border: solid currentColor; border-width: 0 0 2px 2px; border-radius: 0 0 0 3px; }
 .deck-icon::after { content: '✦'; display: grid; place-items: center; font: 10px/1 system-ui; height: 100%; }
@@ -67,4 +67,17 @@ nav a.active { color: #174cb2; background: #edf3ff; }
   #chat { flex-wrap: wrap; }
   #chat input { flex-basis: 100%; }
   #chat button { flex: 1; }
+}
+
+.trainer-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.trainer-head .slot-label { flex:none; margin:0; }
+.trainer-head input { width:100%; min-width:0; font-size:14px; }
+.pick-controls { margin-top:12px; display:grid; gap:6px; }
+.pick-controls .searchbox { margin:0; }
+.pick-controls .draw-card { width:100%; }
+.trainer-tag { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:650; }
+@media (max-width:680px) {
+ .trainer-head { align-items:stretch; flex-direction:column; gap:5px; }
+ .trainer-head input { padding:8px; }
+ .draw-card { gap:7px; padding-inline:4px; font-size:14px; }
 }
