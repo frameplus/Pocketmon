@@ -30,3 +30,24 @@ test('immune targets take no damage from the original move even without coverage
  const hit=G.run(G.plan([p,target],d),()=>.1).events.find(e=>e.i===0&&e.move===85);
  assert.equal(hit.factor,0);assert.equal(hit.damage,0)
 });
+
+test('origin and special categories carry over to Mega forms; equal power totals share one rank',()=>{
+  assert.equal(by.get(10034).region,'kanto');assert.equal(by.get(905).region,'hisui');
+  assert.equal(by.get(808).region,'unknown');assert.equal(by.get(1025).region,'kitakami');
+  assert.ok(by.get(150).legendary);assert.ok(by.get(151).mythical);
+  const ranks=G.powerRanks(d.pokemon);assert.equal(ranks.get(10034),ranks.get(10035));assert.ok(ranks.get(10034)<ranks.get(6));
+  for(const p of d.pokemon)for(const m of p.moves)assert.ok(d.moves[m].en);
+});
+test('daily visits are distinct by browser, persisted on restart, and roll over at midnight in Seoul',()=>{
+  const {openCounter,dayInSeoul}=require('../visitors.js');
+  const dir=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'arena-test-')),file=path.join(dir,'counter.db');
+  let time=Date.parse('2026-11-25T14:59:59Z'),counter=openCounter(file,()=>time);
+  try{
+    const visit={day:dayInSeoul(time),token:require('node:crypto').randomUUID()};assert.equal(counter.snapshot().count,0);
+    assert.equal(counter.snapshot(visit).count,1);assert.equal(counter.snapshot(visit).count,1);
+    assert.equal(counter.snapshot({...visit,token:require('node:crypto').randomUUID()}).count,2);
+    counter.close();counter=openCounter(file,()=>time);assert.equal(counter.snapshot().count,2);
+    time+=1000;assert.deepEqual(counter.snapshot(visit),{day:'2026-11-26',count:0});
+    assert.equal(counter.snapshot({...visit,day:'2026-11-26'}).count,1);
+  }finally{counter.close();fs.rmSync(dir,{recursive:true,force:true})}
+});
