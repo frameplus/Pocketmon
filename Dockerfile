@@ -8,16 +8,9 @@ WORKDIR /model
 COPY scripts/model.py .
 RUN python model.py
 
-FROM mcr.microsoft.com/playwright:v1.55.0-noble AS preview
-WORKDIR /game
-RUN npm install --no-save --ignore-scripts playwright@1.55.0
-COPY . .
-COPY --from=assets /build/public/ public/
-RUN npm test && node test/browser.cjs && touch /tmp/verified
-
 FROM node:22-bookworm-slim
 WORKDIR /game
-COPY --from=preview /tmp/verified /tmp/verified
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 libcurl4 && rm -rf /var/lib/apt/lists/*
 COPY --from=model /model/build/bin /model/bin
 COPY --from=model /model/friend.gguf /model/friend.gguf
 COPY --from=assets /build/public/ public/

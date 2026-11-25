@@ -4,7 +4,7 @@ const url=process.env.ARENA_URL||'http://127.0.0.1:3100',server=process.env.AREN
 let browser;
 try{
  for(let i=0;i<30;i++){try{if((await fetch(url+'/health')).ok)break}catch{}await new Promise(r=>setTimeout(r,300))}
- browser=await chromium.launch({args:['--no-sandbox']});
+ browser=await chromium.launch({executablePath:process.env.CHROME_BIN||undefined,args:['--no-sandbox']});
  for(const [width,height] of [[390,844],[768,1024],[1366,900]]){
   const page=await browser.newPage({viewport:{width,height}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));await page.emulateMedia({reducedMotion:'reduce'});

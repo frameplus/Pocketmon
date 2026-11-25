@@ -32,6 +32,13 @@ module.exports=function makeFriend(d){
      case 'greet':out.reply='반가워! 오늘은 어떤 포켓몬과 놀아 볼까?';break;
      case 'other':out.reply='나는 포켓몬 이야기를 좋아해! 어떤 친구가 궁금해?';break;
      default:out.reply=`${p.name}은 ${G.statNames[best]} 능력치가 ${p.stats[best]}로 가장 높아. ${move.name} 같은 기술도 쓸 수 있어. 누구랑 만나 볼까?`
+   }if(model&&!out.action&&['strength','moves','speed','type'].includes(kind)){
+     try{
+       const res=await fetch('http://127.0.0.1:8089/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'여섯 살 어린이의 포켓몬 친구야. 주어진 도감 사실만 써서 사용자 질문에 맞게 짧고 다정하게 한국어로 답해. 숫자나 기술을 지어내지 마. 개인정보나 외부 연락을 묻지 마.'},{role:'user',content:'질문 '+text+'\\n도감 사실 '+out.reply}],temperature:.25,max_tokens:80}),signal:AbortSignal.timeout(15000)});
+       const sentence=(await res.json()).choices?.[0]?.message?.content?.trim();
+       const numbers=sentence?.match(/\\d+/g)||[];
+       if(sentence&&sentence.length<=200&&sentence.includes(p.name)&&/[가-힣]/.test(sentence)&&numbers.every(n=>out.reply.includes(n))&&!/(https?:|전화|주소|사진을 보내|비밀번호|죽|피투성이)/.test(sentence))out.reply=sentence
+     }catch{}
    }return out
  }
 }

@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -18,9 +18,10 @@ jobs:
         run: python3 scripts/cache.py
       - run: npm test
       - run: npm install --no-save --ignore-scripts playwright@1.55.0
-      - run: npx playwright install --with-deps chromium
+      - run: google-chrome --version
+        name: Verify installed Chrome
       - name: Test preview in Chromium
-        run: SCREENSHOTS=1 node test/browser.cjs
+        run: CHROME_BIN=/usr/bin/google-chrome SCREENSHOTS=1 node test/browser.cjs
       - name: Wait for this release on Railway and test its public address
         if: github.event_name == 'push'
         env:
@@ -29,7 +30,7 @@ jobs:
         run: |
           for attempt in $(seq 1 90); do
             if curl -fsS "$ARENA_URL/health" | jq -e --arg sha "$RELEASE" '.release == $sha'; then
-              SCREENSHOTS=1 node test/browser.cjs
+              CHROME_BIN=/usr/bin/google-chrome SCREENSHOTS=1 node test/browser.cjs
               exit $?
             fi
             sleep 10
