@@ -9,11 +9,27 @@ try{
   const page=await browser.newPage({viewport:{width,height}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto(url);await page.locator('#slot0 h2').waitFor();assert.equal(await page.locator('#slot0 h2').innerText(),'피카츄');
+  const drawButton=page.getByRole('button',{name:'랜덤 카드 뽑기',exact:true});
+  const currentCards=()=>page.locator('.pair .art img').evaluateAll(imgs=>imgs.map(img=>img.getAttribute('src')));
+  let previousCards=await currentCards();
+  for(let draw=0;draw<2;draw++){
+    await drawButton.click();
+    const next=await currentCards();
+    assert.equal(new Set(next).size,2);
+    assert.ok(next.every(card=>!previousCards.includes(card)));
+    assert.deepEqual(await page.locator('#actors img').evaluateAll(imgs=>imgs.map(img=>img.getAttribute('src'))),next);
+    assert.equal(await page.locator('#round').innerText(),'준비 완료');
+    assert.ok(await page.locator('#start').isEnabled());
+    assert.ok(await page.locator('#result').isHidden());
+    previousCards=next;
+  }
+  await page.locator('nav a[href="#history"]').click();await page.locator('#history').waitFor();
+  assert.equal(await page.locator('.record').count(),0);await page.locator('nav a[href="#battle"]').click();
   const q=page.locator('#q0');await q.fill('C');assert.ok(await page.locator('#s0 button').count()>0);await q.fill('Charizard');await page.locator('#s0 button').first().click();await page.locator('#slot0 [data-form="10034"]').click();assert.equal(await page.locator('#slot0 h2').innerText(),'메가리자몽X');
   assert.ok(await page.locator('#slot0 .stats').isVisible());assert.ok(await page.locator('#slot0 .move').first().isVisible());assert.equal(await page.locator('#slot0 .stats span').count(),6);assert.ok(await page.locator('#slot0 .move').count()>=3);
   await page.locator('#q1').fill('ㅍㅋㅊ');await page.locator('#s1 button').first().click();
   await page.waitForFunction(()=>[...document.querySelectorAll('#battle img')].every(i=>i.complete&&i.naturalWidth>0));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});assert.equal(await page.locator('#prediction').getAttribute('open'),null);await page.locator('#again').click();await page.locator('#result h2').waitFor({timeout:60000});
+  await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});assert.equal(await page.locator('#prediction').getAttribute('open'),null);await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});
   await page.locator('nav a[href="#history"]').click();await page.locator('#history .record').nth(1).waitFor();assert.equal(await page.locator('.record').count(),2);
   await page.locator('nav a[href="#dex"]').click();await page.locator('#dexquery').fill('Terapagos');await page.locator('#catalog button').first().click();await page.locator('#mine').click();assert.equal(await page.locator('#slot0 h2').innerText(),'테라파고스');
   await page.locator('nav a[href="#friend"]').click();await page.locator('#message').fill('꼬부기는 무슨 기술을 써?');await page.locator('#chat button').click();await page.waitForFunction(()=>document.querySelector('#talk').innerText.includes('물대포'));
@@ -24,7 +40,7 @@ try{
   await page.locator('#settings').click();await page.locator('#newpin').fill('1357');await page.locator('#setpin button').click();await page.waitForFunction(()=>document.querySelector('#pinmsg').textContent.includes('저장'));await page.locator('#close').click();await page.locator('#settings').click();await page.locator('#pin').fill('1357');await page.locator('#unlock button').click();await page.locator('#newpin').waitFor();await page.locator('#close').click();
   await page.locator('nav a[href="#battle"]').click();if(process.env.SCREENSHOTS){fs.mkdirSync('screenshots',{recursive:true});await page.screenshot({path:`screenshots/arena-${width}.png`,fullPage:true})}
   await page.locator('#language').click();await page.waitForFunction(()=>document.documentElement.lang==='en'&&document.querySelector('#slot0 h2')?.textContent==='Terapagos');
-  assert.equal(await page.locator('#slot0 .region-tag').innerText(),'Paldea');assert.match(await page.locator('#slot0 .stats').innerText(),/Attack/);assert.ok(await page.locator('#slot0 .move').first().isVisible());
+  assert.equal(await page.locator('#slot0 .region-tag').innerText(),'Paldea');assert.match(await page.locator('#slot0 .stats').innerText(),/Attack/);assert.equal(await page.locator('#random').innerText(),'Draw random cards');assert.ok(await page.locator('#slot0 .move').first().isVisible());
   await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});assert.match(await page.locator('#result').innerText(),/wins!/);assert.doesNotMatch(await page.locator('#result').innerText(),/[가-힣]/);
   await page.locator('nav a[href="#dex"]').click();await page.locator('#regionFilter').selectOption('kanto');await page.locator('#kindFilter').selectOption('mega');await page.locator('#typeFilter').selectOption('10');await page.locator('#powerOrder').click();
   assert.equal(await page.locator('#catalog button').count(),2);assert.match(await page.locator('#catalog').innerText(),/Mega Charizard X/);
