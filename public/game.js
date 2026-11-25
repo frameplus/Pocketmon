@@ -73,7 +73,7 @@ const Game=(()=>{
      return '';
    }
  function bigHit(e){
-   return e.kind==='move' && e.damage>0 && e.damage*2>=e.max[e.j];
+   return e.kind==='move' && e.damage>0 && e.damage*4>=e.max[e.j];
  }
  function impactLesson(e,pair,d,en){
    if(!bigHit(e))return '';

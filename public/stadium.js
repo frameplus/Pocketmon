@@ -82,6 +82,24 @@ function paintArena(scene){
   items.forEach((m,i)=>batch.setMatrixAt(i,m));batch.receiveShadow=true;batch.castShadow=shape==='stone';scene.add(batch);
  }
 }
+// Measure the silhouette in the battle camera, so a long tail or deep wingspan
+// does not shrink the whole fighter. Keep the full silhouette inside its lane.
+function battleScale(model,yaw,camera){
+ const x=[],y=[],vertex=new T.Vector3(),up=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
+ const axis=new T.Vector3(0,1,0);
+ model.traverseVisible(mesh=>{
+  if(!mesh.isMesh)return;
+  const count=mesh.geometry.attributes.position.count,stride=Math.max(1,Math.ceil(count/1400));
+  for(let j=0;j<count;j+=stride){
+   mesh.getVertexPosition(j,vertex).applyMatrix4(mesh.matrixWorld).applyAxisAngle(axis,yaw);
+   x.push(vertex.x);y.push(vertex.dot(up));
+  }
+ });
+ if(!x.length)return 0;
+ x.sort((a,b)=>a-b);y.sort((a,b)=>a-b);
+ const span=(a,trim)=>a[Math.ceil((1-trim)*(a.length-1))]-a[Math.floor(trim*(a.length-1))];
+ return Math.min(2.62/Math.sqrt(span(x,.035)*span(y,.035)),3.70/span(x,0),2.95/span(y,0));
+}
 function disposeModel(model){
  const textures=new Set(),materials=new Set(),geometries=new Set();
  model.traverse(o=>{if(!o.isMesh)return;geometries.add(o.geometry);for(const m of [].concat(o.material)){
@@ -105,6 +123,7 @@ export function createStadium(field){
  shadowMap.width=shadowMap.height=64;const cx=shadowMap.getContext('2d'),grad=cx.createRadialGradient(32,32,1,32,32,32);
  grad.addColorStop(0,'rgba(27,52,67,.48)');grad.addColorStop(.56,'rgba(27,52,67,.25)');grad.addColorStop(1,'rgba(27,52,67,0)');cx.fillStyle=grad;cx.fillRect(0,0,64,64);
  const shadowTexture=new T.CanvasTexture(shadowMap);
+ const sideAxis=new T.Vector3(1,0,0),forwardAxis=new T.Vector3(0,0,1);
  const shadows=pads.map(p=>{const s=new T.Mesh(new T.PlaneGeometry(2.6,2),new T.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false}));
   s.rotation.x=-Math.PI/2;s.position.set(p.x,.269,p.z);scene.add(s);return s});
  let visible=false,frame=0,last=0,phase='',release=0,action=null,winner=-1,finished=0,stopped=false;
@@ -153,7 +172,7 @@ export function createStadium(field){
    });
    model.updateMatrixWorld(true);
    const box=new T.Box3().setFromObject(model,true),extent=box.getSize(new T.Vector3()),center=box.getCenter(new T.Vector3());
-   const scale=Math.min((id===25?2.32:2.72)/extent.y,(id===6?4.12:3.45)/Math.max(extent.x,extent.z));
+   const scale=battleScale(model,angles[i],camera);
    if(!Number.isFinite(scale)||scale<=0){disposeModel(model);return}
    const ground=new T.Vector3(center.x,box.min.y,center.z);
    if(id===150){
@@ -166,8 +185,16 @@ export function createStadium(field){
    }
    model.position.sub(ground);pivot.scale.setScalar(scale);
    const attack=id!==25&&gltf.animations.find(a=>/rangeattack01|attack01|impactrueno|attack|atacar/i.test(a.name));
-   const ears=id===25?['LEar1_5','REar1_8','Tail1_30'].map(n=>model.getObjectByName(n)).filter(Boolean).map(bone=>({bone,rest:bone.quaternion.clone()})):[];
-   slots[i]={base,model,pivot,mixer,idle,attack,scale,height:extent.y*scale,id,ears};
+   const joints=[];
+   if(!idle&&!attack)model.traverse(bone=>{
+    if(!bone.isBone)return;
+    const match=/^(tail1?|[lr]ear1?|[lr]wing1?|[lr]arm|head)(?:_|$)/i.exec(bone.name);
+    if(!match)return;
+    const name=match[1].toLowerCase();
+    joints.push({bone,rest:bone.quaternion.clone(),axis:name.startsWith('tail')?'y':name==='head'?'x':'z',
+     amplitude:name==='head' ? .045:name.startsWith('tail') ? .21 : .13,sign:name.startsWith('r')?-1:1});
+   });
+   slots[i]={base,model,pivot,mixer,idle,attack,scale,height:extent.y*scale,id,joints};
    scene.add(base);base.position.copy(pads[i]);base.position.y=.27;base.rotation.y=angles[i];
    field.dataset['mesh'+i]=String(id);wake();
   }catch{/* Selection changes and missing models keep their front-facing artwork. */}
@@ -177,10 +204,22 @@ export function createStadium(field){
   pair.forEach((p,i)=>{if(p.id!==ids[i])jobs[i]=selectOne(p.id,i)});
   return Promise.all(jobs);
  }
+ const wave=new T.Mesh(new T.RingGeometry(.83,1,48),new T.MeshBasicMaterial({transparent:true,depthWrite:false,side:T.DoubleSide}));
+ wave.rotation.x=-Math.PI/2;wave.visible=false;scene.add(wave);
  const sparks=new T.Group(),sparkMat=new T.MeshBasicMaterial(),sparkShape=new T.OctahedronGeometry(.065);
  for(let i=0;i<8;i++)sparks.add(new T.Mesh(sparkShape,sparkMat));
  sparks.visible=false;scene.add(sparks);
  function paintSparks(){
+  wave.visible=false;
+  if(action&&!still.matches){
+   const charge=action.t<.32,progress=charge?action.t/.32:(action.t-.53)/.32;
+   if(progress>=0&&progress<1&&(charge||action.connects)){
+    const mark=pads[charge?action.i:1-action.i];
+    wave.visible=true;wave.position.set(mark.x,.282,mark.z);
+    wave.scale.setScalar(charge?1.20-progress*.72:.38+progress*1.2);
+    wave.material.color.set(action.color);wave.material.opacity=charge ? .48*Math.sin(progress*Math.PI):.65*(1-progress);
+   }
+  }
   sparks.visible=!!action&&!still.matches&&action.style!=='focus'&&action.connects;
   if(!sparks.visible)return;
   const {t,i,travel}=action,source=pads[i],dest=pads[1-i],v=clamp((t-.20)/.33),impact=clamp((t-.53)/.36);
@@ -210,30 +249,47 @@ export function createStadium(field){
    s.base.visible=phase!=='throw'&&size>.01;shadows[i].visible=s.base.visible;
    s.base.scale.setScalar(Math.max(.001,size));
    if(!still.matches){
-    s.mixer.update(dt);s.base.position.y+=Math.sin(time*.0028+i)*.035;
-    for(const [k,ear] of s.ears.entries()){
-     ear.bone.quaternion.copy(ear.rest);ear.bone.rotateZ(Math.sin(time*.0034+k)*.053);
-     if(action&&action.i===i)ear.bone.rotateX(Math.sin(Math.PI*action.t)*.18);
+    s.mixer.update(dt);
+    const beat=time*.0043+i*2.2,step=(1-Math.cos(beat))*.5;
+    s.base.position.y+=step*(s.idle ? .025 : .09);
+    s.base.position.x+=Math.sin(beat)*.055;
+    s.base.rotation.y+=Math.sin(beat*.5)*.085;
+    for(const joint of s.joints){
+     const swing=Math.sin(beat+.7)*joint.amplitude*joint.sign;
+     joint.bone.quaternion.copy(joint.rest);
+     joint.bone.rotateOnAxis(joint.axis==='y'?T.Object3D.DEFAULT_UP:joint.axis==='x'?sideAxis:forwardAxis,swing);
     }
     if(action){
-     const t=action.t;
+     const t=action.t,dir=i?-1:1;
      if(i===action.i){
-      const ease=Math.sin(Math.PI*clamp((t-.16)/.68));
-      if(action.travel){s.base.position.x+=(other.x-from.x)*.68*ease;s.base.position.z+=(other.z-from.z)*.68*ease;s.base.position.y+=ease*.24}
-      else{s.base.rotation.y+=((i?-1:1)*.27)*ease;s.base.rotation.z=(i?1:-1)*ease*.055}
-     }else if(t>=.53){const bump=Math.sin(Math.PI*clamp((t-.53)/.35));s.base.position.x+=(i?1:-1)*bump*(action.connects ? .31 : .10);s.base.position.y+=bump*(action.miss ? .33 : .08)}
+      const load=Math.sin(Math.PI*clamp(t/.31));
+      const drive=Math.sin(Math.PI*clamp((t-.21)/.65));
+      const stride=action.travel ? .65 : .16;
+      s.base.position.x+=(other.x-from.x)*stride*drive-dir*.31*load;
+      s.base.position.z+=(other.z-from.z)*stride*drive;
+      s.base.position.y+=drive*(action.travel ? .46 : .24);
+      s.base.scale.x*=1+.045*load;s.base.scale.y*=1-.10*load;s.base.scale.z*=1+.045*load;
+      s.base.rotation.y+=dir*(.29*drive-.20*load);
+      s.base.rotation.x=.13*drive-.09*load;
+      s.base.rotation.z=dir*-.055*drive;
+     }else if(t>=.53){
+      const bump=Math.sin(Math.PI*clamp((t-.53)/.41));
+      s.base.position.x-=dir*bump*(action.connects ? .43 : .18);
+      s.base.position.y+=bump*(action.miss ? .39 : .20);
+      s.base.rotation.x=-.15*bump;
+     }
     }
    }
    if(i===winner){
     const t=still.matches?1:clamp((time-finished)/720);
-    s.base.rotation.y=T.MathUtils.lerp(angles[i],i?-.1:.13,t);s.base.position.y+=Math.sin(Math.PI*t)*.22;
+    s.base.rotation.y=T.MathUtils.lerp(angles[i],i?-.1:.13,t);s.base.position.y+=Math.abs(Math.sin(Math.PI*2*t))*(1-t)*.52;
    }
    shadows[i].position.x=s.base.position.x;shadows[i].position.z=s.base.position.z;
   });
   paintSparks();renderer.render(scene,camera);frame=requestAnimationFrame(render);
  }
  function wake(){if(!frame&&!stopped&&visible&&!document.hidden){last=0;frame=requestAnimationFrame(render)}}
- const observer=new IntersectionObserver(rows=>{visible=rows[0].isIntersecting;wake()});observer.observe(field);
+ const observer=new IntersectionObserver(rows=>{visible=rows.at(-1).isIntersecting;wake()});observer.observe(field);
  document.addEventListener('visibilitychange',wake);
  field.dataset.world='on';
  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();stopped=true;cancelAnimationFrame(frame);delete field.dataset.world;delete field.dataset.mesh0;delete field.dataset.mesh1;observer.disconnect();sizeObserver.disconnect();requests.forEach(c=>c?.abort());document.removeEventListener('visibilitychange',wake)});

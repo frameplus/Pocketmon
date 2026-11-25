@@ -24,6 +24,7 @@ function makeSimulator(data) {
       ids.forEach((id,i)=>battle.setPlayer('p'+(i+1),{name:'side'+i,team:[{...sets.get(id)}]}));
       battle.makeChoices('team 1','team 1');
       const active = () => battle.sides.map(s=>s.active[0]||s.pokemon[0]);
+      active().forEach(applyJuniorRules);
       const initial = active().map(p=>p.maxhp), events=[];
       let hp=active().map(p=>p.hp), max=initial.slice();
       const contexts=record?observeHits(battle):null;
@@ -49,6 +50,25 @@ function makeSimulator(data) {
     return {wins,count};
   }
   return {simulate,forecast};
+}
+
+// Resolve accuracy, type, stats, abilities and criticals in Showdown first.
+function applyJuniorRules(pokemon){
+  const original=pokemon.damage;
+  let turn=-1,remaining=0;
+  pokemon.damage=function(amount,source,effect){
+    if(!(amount>0))return 0;
+    if(turn!==this.battle.turn){
+      turn=this.battle.turn;
+      // Shedinja keeps its canonical single HP and gets two opening turns to participate.
+      remaining=this.maxhp===1&&turn<=2?0:Math.max(1,Math.floor(this.maxhp*.32));
+    }
+    const knee=this.maxhp*.20;
+    const paced=effect?.effectType==='Move'?Math.min(amount,knee)+Math.max(0,amount-knee)*.30:amount;
+    const actual=original.call(this,Math.min(remaining,Math.max(1,Math.floor(paced))),source,effect);
+    remaining-=actual;
+    return actual;
+  };
 }
 
 // Both forecast and play use the same policy. The simulator resolves the actual effects.
@@ -77,6 +97,8 @@ function choice(side,foe){
       const accuracy=m.accuracy===true?1:m.accuracy/100;
       const immuneAbility=!m.ignoreAbility && (foe.hasAbility('wonderguard')&&matchup<=1 || m.type==='Ground'&&foe.hasAbility('levitate') || m.type==='Water'&&foe.hasAbility(['waterabsorb','stormdrain','dryskin']) || m.type==='Electric'&&foe.hasAbility(['voltabsorb','lightningrod','motordrive']) || m.type==='Fire'&&foe.hasAbility(['flashfire','wellbakedbody']) || m.type==='Grass'&&foe.hasAbility('sapsipper'));
       score=immuneAbility?0:(power*stat*matchup*(user.hasType(m.type)?1.5:1)*accuracy);
+      // When another good move is available, vary the next attack.
+      if(user.lastMove?.id===m.id)score*=.80;
       if(m.priority>0&&score>0&&score*.44+2>=foe.hp)score+=150;
     }
     if(score>best){best=score;index=i}

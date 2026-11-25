@@ -25,12 +25,17 @@ test('all cached forms match simulator HP and yield valid battle replays',()=>{
   const pair=[p,by.get(1+(p.dex*37)%1025)],ids=pair.map(x=>x.id);
   const result=sim.simulate(ids,{seed});
   assert.deepEqual(result.initial,pair.map(G.hp));
+  assert.ok(result.events.at(-1).round>=3,'both fighters get opening turns');
+  assert.ok(result.events.filter(e=>e.kind==='move').length>1);
+  for(const e of result.events.filter(e=>e.kind==='move')){
+   assert.ok(e.damage<=Math.max(1,Math.floor(e.max[e.j]*.32)),'multi-hit moves share the turn budget');
+  }
   assert.ok([-1,0,1].includes(result.winner));assert.ok(result.events.length);
   if(result.winner>=0)assert.equal(result.events.at(-1).hp[1-result.winner],0);
   for(const event of result.events)assert.ok(event.hp.every((v,i)=>Number.isInteger(v)&&v>=0&&v<=event.max[i]));
  }
 });
-test('type chart and independently calculated level-50 Thunderbolt damage',()=>{
+test('type chart and junior scaling of level-50 Thunderbolt damage',()=>{
  assert.equal(d.chart.length,18);assert.equal(G.effect(13,by.get(27),d),0);assert.equal(G.effect(6,by.get(6),d),4);assert.equal(G.effect(12,by.get(6),d),.25);
  const ids=[25,9],controlled=fixture(ids,[[85],[150]]);
  // Smogon damage calculator, neutral 0 EV / 31 IV Pikachu vs Blastoise, no items.
@@ -38,9 +43,20 @@ test('type chart and independently calculated level-50 Thunderbolt damage',()=>{
  for(let i=1;i<=64;i++){
   const hit=controlled.simulate(ids,{seed:[i,2,3,i*347]}).events.find(e=>e.move===85);
   assert.equal(hit.effect,'strong');
-  if(!hit.crit){assert.ok(hit.damage>=60&&hit.damage<=72);rolls.add(hit.damage)}
+  if(!hit.crit){const knee=G.hp(by.get(9))*.20;
+   assert.ok(hit.damage>=Math.floor(knee+(60-knee)*.30)&&hit.damage<=Math.floor(knee+(72-knee)*.30));rolls.add(hit.damage)}
  }
  assert.ok(rolls.size>1);
+});
+test('prediction and playback resolve the same paced battle, including multi-hit moves and one-HP cards',()=>{
+ for(const ids of [[25,6],[292,6],[91,149],[10034,1]]){
+  const result=sim.simulate(ids,{seed});
+  assert.equal(result.winner,sim.simulate(ids,{seed,record:false}).winner);
+  for(const e of result.events.filter(e=>e.round<3))assert.ok(e.hp.every(n=>n>0));
+ }
+ const clash=fixture([91,149],[[333],[150]]).simulate([91,149],{seed});
+ const strike=clash.events.find(e=>e.damage>0);
+ assert.ok(strike&&strike.damage<=Math.floor(strike.max[strike.j]*.32));
 });
 test('Magikarp only uses its chosen game learnset; forecast plays that battle',()=>{
  assert.deepEqual(by.get(129).moves,[33,175,150]);assert.equal(by.get(129).learnsetGroup,25);
@@ -98,8 +114,8 @@ test('big-hit lessons use the defender’s full HP and only actual direct damage
  const hit=result.events.find(e=>e.move===85);
  assert.match(G.impactLesson(hit,pair,d,false),/전기.*물 타입.*2배/);
  assert.match(G.impactLesson({...hit,crit:true},pair,d,true),/2 times.*critical/);
- assert.equal(G.bigHit({...hit,damage:59}),false);
- assert.equal(G.bigHit({...hit,damage:60}),true);
+ assert.equal(G.bigHit({...hit,damage:29}),false);
+ assert.equal(G.bigHit({...hit,damage:30}),true);
  assert.equal(G.bigHit({...hit,kind:'indirect'}),false);
  assert.equal(G.impactLesson({...hit,damage:1},pair,d,false),'');
  const neutral={...hit,effect:'',matchup:{...hit.matchup,factor:1}};

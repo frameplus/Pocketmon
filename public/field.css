@@ -8,8 +8,8 @@
 #battlefield::after { content:''; position:absolute; z-index:5; pointer-events:none; inset:0;
   background:linear-gradient(0deg,#273c3737,transparent 21%,transparent 80%,#eefbe119); }
 #battlefield .actor { inset:0; width:auto; height:auto; display:block; pointer-events:none; }
-#battlefield .actor.left { --foot:var(--near-feet); --center:var(--near-x); --size:43%; --height:57%; z-index:3; }
-#battlefield .actor.right { --foot:var(--far-feet); --center:var(--far-x); --size:31%; --height:35%; z-index:2; }
+#battlefield .actor.left { --foot:var(--near-feet); --center:var(--near-x); --size:37%; --height:46%; z-index:3; }
+#battlefield .actor.right { --foot:var(--far-feet); --center:var(--far-x); --size:37%; --height:46%; z-index:2; }
 #battlefield .actor::before { content:''; position:absolute; left:var(--center); top:var(--foot);
   width:calc(var(--size) * .82); height:8%; transform:translate(-50%,-65%);
   background:radial-gradient(ellipse,#25482e79 0%,#314c3444 32%,transparent 69%); }

@@ -2,6 +2,20 @@
 function createNarrator(lang,onState){
   let context,source,utterance,timer,request,finish,generation=0;
   const synth=window.speechSynthesis;
+  let tone;
+  function impactSound(type){
+    if(context?.state!=='running'||tone)return;
+    const notes={10:[210,80],11:[330,680],12:[420,310],13:[820,260],15:[910,590]};
+    const [from,to]=notes[type]||[165,95],now=context.currentTime,length=.18;
+    const voice=context.createOscillator(),volume=context.createGain();
+    tone=voice;voice.type=type===13?'triangle':'sine';
+    voice.frequency.setValueAtTime(from,now);voice.frequency.exponentialRampToValueAtTime(to,now+length);
+    volume.gain.setValueAtTime(.0001,now);volume.gain.exponentialRampToValueAtTime(.10,now+.018);
+    volume.gain.exponentialRampToValueAtTime(.0001,now+length);
+    voice.connect(volume);volume.connect(context.destination);
+    voice.onended=()=>{voice.disconnect();volume.disconnect();if(tone===voice)tone=null};
+    voice.start(now);voice.stop(now+length+.01);
+  }
   function unlock(){
     try{
       const Audio=window.AudioContext||window.webkitAudioContext;
@@ -14,6 +28,7 @@ function createNarrator(lang,onState){
     if(state==='idle'||state==='error'){finish?.();finish=null}
   }
   function stop(){
+    if(tone){try{tone.stop()}catch{}tone=null}
     generation++;clearTimeout(timer);request?.abort();request=null;
     if(source){source.onended=null;try{source.stop()}catch{}source=null}
     utterance=null;
@@ -63,5 +78,5 @@ function createNarrator(lang,onState){
     return done;
   }
   try{synth?.getVoices()}catch{}
-  return {speak,stop,unlock};
+  return {speak,stop,unlock,impactSound};
 }

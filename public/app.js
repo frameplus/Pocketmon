@@ -80,6 +80,27 @@
   if(!animated)return img(p);
   return `<picture class="battle-sprite"><source media="(prefers-reduced-motion: no-preference)" srcset="/fighters/front/${p.id}.gif">${img(p)}</picture>`;
  }
+ // Fit the visible drawing inside the shared slot even when its source has transparent margins.
+ const spriteCrops=new Map();
+ $('actors').addEventListener('load',event=>{
+  const image=event.target;
+  if(image.tagName!=='IMG'||!CSS.supports('object-view-box','inset(1%)'))return;
+  const source=image.currentSrc;
+  if(!spriteCrops.has(source)){
+   const canvas=document.createElement('canvas');canvas.width=canvas.height=96;
+   const ctx=canvas.getContext('2d',{willReadFrequently:true});
+   ctx.drawImage(image,0,0,96,96);
+   const pixels=ctx.getImageData(0,0,96,96).data;
+   let left=96,top=96,right=-1,bottom=-1;
+   for(let y=0;y<96;y++)for(let x=0;x<96;x++)if(pixels[(y*96+x)*4+3]>35){
+    left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+   }
+   // Keep a little space around moving ears and tails in animated GIFs.
+   const inset=right<left?'none':'inset('+[top,95-right,95-bottom,left].map(n=>Math.max(0,n-4)*100/96+'%').join(' ')+')';
+   spriteCrops.set(source,inset);
+  }
+  image.style.objectViewBox=spriteCrops.get(source);
+ },true);
  function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${fighter(p,i)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
   $('battlefield').dataset.scene='ready';combat.clear();narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
@@ -146,7 +167,10 @@
    if(e.kind==='move'&&m){
     $('log').textContent=en?`${pair[e.i].name} used ${m.name}!`:`${pair[e.i].name}의 ${m.name}!`;
     await combat.play(e,m,{typeName:types[e.matchup?.type||m.type],impact(){
-     if(id===epoch){updateHP(e.hp,e.max);$('log').textContent=description}
+     if(id===epoch){
+      updateHP(e.hp,e.max);$('log').textContent=description;
+      if(e.damage>0&&!mute&&!rec&&readingState!=='playing'&&readingState!=='loading')narrator.impactSound(e.matchup?.type||m.type);
+     }
     }});
    }else{
     $('log').textContent=description;updateHP(e.hp,e.max);await pause(500);
@@ -247,7 +271,7 @@
    stadium=createStadium(view);stadium.select(pair);return stadium;
  }).catch(()=>{view.dataset.world='fallback'});
  if('IntersectionObserver' in window){
-  const watch=new IntersectionObserver(entries=>{if(entries[0].isIntersecting){watch.disconnect();initWorld()}},{rootMargin:'450px'});watch.observe(view);
+  const watch=new IntersectionObserver(entries=>{if(entries.at(-1).isIntersecting){watch.disconnect();initWorld()}},{rootMargin:'450px'});watch.observe(view);
  }else initWorld();
  refresh();$('loading').hidden=true;go(location.hash.slice(1));bubble(t('안녕! 좋아하는 포켓몬 이름을 말해 줘.',"Hi! Tell me the name of your favorite Pokémon."),false);
 })().catch(()=>{document.getElementById('loading').textContent=Locale.t('도감을 열지 못했어. 새로고침해서 다시 만나자!','Could not open the Pokédex. Please refresh to try again.')});

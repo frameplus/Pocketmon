@@ -13,11 +13,13 @@ module.exports=async function testBattleAction(browser,url){
   // Inspect actual rendered objects through Three's scene callback, across consecutive ranged moves.
   await page.evaluate(async()=>{
    const {Scene}=await import('three'),original=Scene.prototype.onBeforeRender;
-   window.tilt={peak:[0,0],latest:[null,null]};
+   window.tilt={peak:[0,0],latest:[null,null],startX:[],stride:[0,0]};
    Scene.prototype.onBeforeRender=function(...args){
     original.apply(this,args);
     for(let i=0;i<2;i++){
      const fighter=this.getObjectByName('fighter-'+i);if(!fighter)continue;
+     window.tilt.startX[i]??=fighter.position.x;
+     window.tilt.stride[i]=Math.max(window.tilt.stride[i],Math.abs(fighter.position.x-window.tilt.startX[i]));
      const angle=Math.abs(fighter.rotation.z);
      window.tilt.peak[i]=Math.max(window.tilt.peak[i],angle);
      window.tilt.latest[i]=angle;
@@ -37,6 +39,7 @@ module.exports=async function testBattleAction(browser,url){
   assert.equal(await page.locator('#hp0').innerText(),'0/110');
   assert.ok(await page.locator('#result').isHidden());
   await page.waitForFunction(()=>window.tilt.latest.every(v=>v===0));
+  assert.ok(await page.evaluate(()=>window.tilt.stride.every(x=>x>.35)),'both ranged attackers step out onto the field');
   const peaks=await page.evaluate(()=>window.tilt.peak);
   assert.ok(peaks.every(v=>v>0&&v<=0.055001),'each move leans briefly by at most 3.2 degrees');
   await page.locator('#result h2').waitFor();
