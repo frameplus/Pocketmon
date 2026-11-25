@@ -81,3 +81,7 @@ nav a.active { color: #174cb2; background: #edf3ff; }
  .trainer-head input { padding:8px; }
  .draw-card { gap:7px; padding-inline:4px; font-size:14px; }
 }
+
+.card .hp { display:grid; justify-items:end; line-height:1.2; }
+.card .hp small { color:#765463; }
+.card-hp { font-variant-numeric:tabular-nums; }

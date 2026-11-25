@@ -7,7 +7,7 @@
  const get=(k,def)=>{try{return JSON.parse(localStorage.getItem('arena.'+k))??def}catch{return def}};
  const put=(k,v)=>{try{localStorage.setItem('arena.'+k,JSON.stringify(v))}catch{}};
  let savedPair;try{savedPair=JSON.parse(sessionStorage.getItem('arena.pair'))}catch{}
- let pair=Array.isArray(savedPair)&&savedPair.length===2&&savedPair.every(id=>by.has(id))?savedPair.map(id=>by.get(id)):[by.get(25),by.get(6)],battlePlan,epoch=0,busy=false,activePage='',target=0,pageSize=36,noticeTimer,rec=null,voiceEpoch=0,focus=25,lastIntent='',suggested=null,questionEpoch=0;
+ let pair=Array.isArray(savedPair)&&savedPair.length===2&&savedPair.every(id=>by.has(id))?savedPair.map(id=>by.get(id)):[by.get(25),by.get(6)],forecastVersion=-1,epoch=0,busy=false,activePage='',target=0,pageSize=36,noticeTimer,rec=null,voiceEpoch=0,focus=25,lastIntent='',suggested=null,questionEpoch=0;
  let mute=get('mute',false),history=get('history',[]);if(!Array.isArray(history))history=[];
  const savedTrainers=get('trainers',[]);
  const trainers=[0,1].map(i=>typeof savedTrainers?.[i]==='string'?savedTrainers[i].slice(0,24):'');
@@ -31,8 +31,8 @@
   try{notify(t('마이크 연결 중…',"Connecting microphone…"),true);r.start()}catch{rec=null;notify(t('마이크를 시작할 수 없어. 권한을 확인해 줘.',"Could not start the mic. Check permissions."))}
  }
  function card(p,side){
-  const moves=p.moves.map(id=>{const m=d.moves[id];return `<div class="move"><b>${esc(m.name)}</b><small>${G.icons[m.type]} ${types[m.type]} · ${m.power?t('위력 ',"Power ")+m.power:t('변화 기술',"Status move")}</small></div>`}).join('');
-  return `<article class="card" style="--t:${G.colors[p.types[0]]};--u:${G.colors[p.types[1]||p.types[0]]}"><div class="shell"><div class="cardtop"><div><small class="serial">${side ? esc(side)+" · " : ""}No. ${String(p.dex).padStart(4,'0')}</small><h2>${esc(p.name)}</h2></div><span class="hp"><small>HP</small> ${p.stats[0]}</span></div><div class="art">${img(p)}</div><div class="meta">${badges(p)}<span class="region-tag">${esc(region(p.region))}</span></div><div class="card-info"><div class="stats">${p.stats.map((v,i)=>`<span>${stats[i]}<b>${v}</b></span>`).join('')}</div><h3 class="move-title">${t("대표 기술","Moves")}</h3>${moves}</div></div></article>`
+  const moves=p.moves.map(id=>{const m=d.moves[id];return `<div class="move"><b>${esc(m.name)}</b><small>${G.icons[m.type]} ${types[m.type]} · ${m.power?t('위력 ',"Power ")+m.power:m.category===1?t('변화 기술','Status move'):t('가변·특수 위력','Variable / special power')}</small></div>`}).join('');
+  return `<article class="card" style="--t:${G.colors[p.types[0]]};--u:${G.colors[p.types[1]||p.types[0]]}"><div class="shell"><div class="cardtop"><div><small class="serial">${side ? esc(side)+" · " : ""}No. ${String(p.dex).padStart(4,'0')}</small><h2>${esc(p.name)}</h2></div><span class="hp"><small>Lv.50 · HP</small> <b class="card-hp">${G.hp(p)}</b></span></div><div class="art">${img(p)}</div><div class="meta">${badges(p)}<span class="region-tag">${esc(region(p.region))}</span></div><div class="card-info"><h3 class="move-title">${t("도감 종족값","Base stats")}</h3><div class="stats">${p.stats.map((v,i)=>`<span>${stats[i]}<b>${v}</b></span>`).join('')}</div><h3 class="move-title">${t("대표 기술","Moves")}</h3>${moves}</div></div></article>`
  }
  function choose(i,p){pair[i]=p;focus=p.id;target=i;refresh()}
  function slot(i){
@@ -64,27 +64,67 @@
  function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${img(p)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
   epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
-  slot(0);slot(1);battlePlan=G.plan(pair,d);const odds=G.odds(battlePlan),lead=odds[0]>=odds[1]?0:1,move=battlePlan.lists[lead][0];
-  const note=odds[0]===odds[1]?t('두 친구의 기회가 비슷해!',"Both have a similar chance!"):pair[lead].name+t(' 쪽이 유리해. '," has the edge. ")+(move&&move.factor>1?d.moves[move.id].name+t(' 기술로 약점을 노릴 수 있어.'," can hit a weakness."):pair[lead].stats[5]>pair[1-lead].stats[5]?t('스피드가 더 빨라.',"It has the higher Speed stat."):t('연습 대결에서 더 자주 이겼어.',"It won more practice battles."));
-  $('odds').innerHTML=`<div class="row"><b>${esc(pair[0].name)} ${odds[0]}%</b><b>${odds[1]}% ${esc(pair[1].name)}</b></div><div class="meter"><i style="width:${odds[0]}%"></i></div><p class="hint">${t("400번 연습 결과","400 practice battles")} · ${esc(note)}</p>`;
+  slot(0);slot(1);$('odds').replaceChildren();forecastVersion=-1;
   $('actors').innerHTML=actors();$('round').textContent=t('준비 완료',"Ready");$('log').textContent=pair.map(x=>x.name).join(t(' 대 '," vs. "))+'!';$('fx').textContent='';$('fx').className='';
+ }
+ async function matchRequest(route,method='GET'){
+  const path='/api/'+route+'/'+pair.map(p=>p.id).join('/');
+  const res=await fetch(path,{method,cache:'no-store',signal:AbortSignal.timeout(60000)});
+  if(!res.ok)throw Error('Battle service unavailable');
+  return res.json();
+ }
+ $('prediction').ontoggle=async()=>{
+  if(!$('prediction').open||forecastVersion===epoch)return;
+  const id=epoch;forecastVersion=id;
+  $('odds').textContent=t('같은 규칙으로 연습 대결 중…','Running practice battles…');
+  try{
+   const {wins,count}=await matchRequest('forecast');if(id!==epoch)return;
+   const pct=wins.map(w=>100*w/count);
+   const note=wins[0]===wins[1]?t('양쪽의 승리 횟수가 같아.','Each side won equally often.'):pair[wins[0]>wins[1]?0:1].name+t(' 쪽이 더 자주 이겼어.',' won more often.');
+   $('odds').innerHTML=`<div class="row"><b>${esc(pair[0].name)} ${pct[0]}%</b><b>${pct[1]}% ${esc(pair[1].name)}</b></div><div class="meter" style="background:linear-gradient(to right,#3269d3 0 ${pct[0]}%,#b6bed0 ${pct[0]}% ${100-pct[1]}%,#eb5868 ${100-pct[1]}% 100%)"></div><p class="hint">${t('400번 연습 결과','400 practice battles')} · ${esc(note)} ${wins[2]?t('무승부 ','Ties ')+pct[2]+'%':''}</p><p class="hint">${t('두 친구 모두 레벨 50 · 개체값 31 · 노력치 0 · 무보정 성격 · 첫 번째 일반 특성 · 지닌 도구 없음','Both at level 50 · 31 IVs · 0 EVs · neutral nature · first regular ability · no held items')}</p>`;
+  }catch{if(id===epoch){forecastVersion=-1;$('odds').textContent=t('승률을 불러오지 못했어. 접었다 다시 열어 줘.','Close and reopen to retry the forecast.')}}
+ };
+ function updateHP(current,maximum){
+  current.forEach((v,i)=>{
+   const value=v+'/'+maximum[i];
+   $('hp'+i).textContent=value;$('bar'+i).style.width=(100*v/maximum[i])+'%';
+   $('slot'+i).querySelector('.card-hp').textContent=value;
+  });
  }
  const pause=ms=>new Promise(r=>setTimeout(r,ms));
  async function battle(){
-  if(busy)return;const id=++epoch;busy=true;const result=G.run(battlePlan);
-  $('start').disabled=true;$('start').textContent=t('대결 중…',"Battling…");$('actors').innerHTML=actors();$('result').hidden=true;$('arena').scrollIntoView({block:'center',behavior:'smooth'});
-  for(const e of result.events){
+  if(busy)return;const id=++epoch;busy=true;$('start').disabled=true;
+  $('start').textContent=t('대결 중…','Battling…');$('result').hidden=true;$('prediction').open=false;
+  $('actors').innerHTML=actors();updateHP(pair.map(G.hp),pair.map(G.hp));
+  $('arena').scrollIntoView({block:'center',behavior:'smooth'});
+  let result;
+  try{result=await matchRequest('battle','POST')}catch{
+   if(id===epoch){busy=false;$('start').disabled=false;$('start').textContent=t('▶ 대결 시작','▶ Start battle');$('log').textContent=t('연결을 확인하고 다시 시작해 줘.','Check the connection and try again.')}
+   return
+  }
+  if(id!==epoch)return;
+  updateHP(result.initial,result.initial);
+  const events=result.events,long=events.length>22;
+  const highlights=long?events.filter((e,k)=>k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
+  for(const e of highlights){
    if(id!==epoch)return;const a=$('a'+e.i),b=$('a'+e.j),fx=$('fx'),m=d.moves[e.move];
    for(let i of [0,1])$('a'+i).classList.remove('hit','strike');
-   fx.className='';void fx.offsetWidth;a.classList.add('strike');if(e.damage)b.classList.add('hit');fx.textContent=e.hit?(m.category===2?'✴':G.icons[m.type]):'· · ·';fx.style.setProperty('--trail',G.colors[m.type]);fx.className='shot '+(m.priority>0?'swift':m.category===2?'impact':m.power>=90?'surge':'beam')+(e.i?' reverse':'');
-   $('round').textContent=en?'Round '+e.round:e.round+'라운드';$('log').textContent=(en?`${pair[e.i].name} used ${m.name}! `:`${pair[e.i].name}의 ${m.name}! `)+(e.hit?(e.factor===0?t('효과가 없었어! ',"No effect! "):e.crit?t('급소에 맞았어! ',"Critical hit! "):e.factor>1?t('효과가 굉장해! ',"Super effective! "):'')+'−'+e.damage:t('빗나갔어!',"It missed!"));
-   e.hp.forEach((h,i)=>{$('hp'+i).textContent=h+'/'+G.hp(pair[i]);$('bar'+i).style.width=h/G.hp(pair[i])*100+'%'});await pause(710)
+   fx.className='';fx.textContent='';void fx.offsetWidth;
+   if(e.kind==='move'&&m){
+    a.classList.add('strike');if(e.damage)b.classList.add('hit');
+    fx.textContent=e.hit?(m.category===2?'✴':G.icons[m.type]):'· · ·';fx.style.setProperty('--trail',G.colors[m.type]);
+    fx.className='shot '+(m.priority>0?'swift':m.category===2?'impact':m.power>=90?'surge':'beam')+(e.i?' reverse':'');
+   }
+   $('round').textContent=(long?t('주요 장면 · ','Highlights · '):'')+(en?'Turn '+e.round:e.round+'턴');
+   $('log').textContent=G.describe(e,pair,d,en);updateHP(e.hp,e.max);await pause(650)
   }
-  if(id!==epoch)return;const w=result.winner,v=pair[w],l=pair[1-w],why=G.explain(result,pair,d,lang);
-  $('round').textContent=t('대결 끝',"Finished");$('log').textContent=t('두 친구 모두 수고했어!',"Well played, both of you!");$('fx').textContent='';$('prediction').open=false;
-  $('result').innerHTML=`<article class="win">${img(v)}<div><h2>🏆 ${esc(v.name)} ${t("승리!","wins!")}</h2><p><b>${en?"Why "+esc(v.name)+" won":esc(v.name)+"이 이긴 이유"}</b><br>${esc(why[0])}</p><p><b>${en?"Why "+esc(l.name)+" lost":esc(l.name)+"이 진 이유"}</b><br>${esc(why[1])}</p></div></article>`;$('result').hidden=false;
+  if(id!==epoch)return;
+  const w=result.winner,why=G.explain(result,pair,d,lang);
+  $('round').textContent=t('대결 끝','Finished');$('log').textContent=t('두 친구 모두 수고했어!','Well played, both of you!');$('fx').textContent='';$('prediction').open=false;
+  const v=pair[w],l=pair[1-w],title=v?v.name+t(' 승리!',' wins!'):t('무승부!','A tie!');
+  $('result').innerHTML=`<article class="win">${img(v||pair[0])}<div><h2>${v?'🏆 ':''}${esc(title)}</h2><p>${v?`<b>${en?'Why '+esc(v.name)+' won':esc(v.name)+'이 이긴 이유'}</b><br>`:''}${esc(why[0])}</p>${l?`<p><b>${en?'Why '+esc(l.name)+' lost':esc(l.name)+'이 진 이유'}</b><br>${esc(why[1])}</p>`:''}</div></article>`;$('result').hidden=false;
   history=[{ids:pair.map(p=>p.id),w,time:Date.now()},...history].slice(0,24);put('history',history);
-  busy=false;$('start').disabled=false;$('start').textContent=t('↻ 다시 대결',"↻ Rematch");$('result').scrollIntoView({block:'nearest',behavior:'smooth'});say(en?`${v.name} wins! ${why.join(" ")}`:`${v.name} 승리! ${why[0]} ${l.name}은 ${why[1]}`)
+  busy=false;$('start').disabled=false;$('start').textContent=t('↻ 다시 대결','↻ Rematch');$('result').scrollIntoView({block:'nearest',behavior:'smooth'});say([title,...why].join(' '))
  }
  function drawCards(side){
   const oldSpecies=new Set(pair.map(p=>p.dex));
@@ -115,7 +155,7 @@
  for(const id of ['typeFilter','kindFilter','regionFilter'])$(id).onchange=()=>{pageSize=36;catalog()};
  $('powerOrder').onclick=()=>{powerOrder=true;pageSize=36;catalog()};$('dexOrder').onclick=()=>{powerOrder=false;pageSize=36;catalog()};
  function records(){
-  $('records').replaceChildren();for(const h of history){if(!h||!Array.isArray(h.ids)||h.ids.length!==2||!h.ids.every(i=>by.has(i))||![0,1].includes(h.w))continue;const pair=h.ids.map(i=>by.get(i)),el=document.createElement('article');el.className='record';el.innerHTML=`${img(pair[h.w])}<div><b>${esc(pair[h.w].name)} ${t("승리","wins")}</b><p>${pair.map(x=>esc(x.name)).join(t(' 대 '," vs. "))}</p></div><button>${t("다시 대결","Rematch")}</button>`;el.lastElementChild.onclick=()=>{usePair(h.ids);go('battle');battle()};$('records').append(el)}if(!$('records').children.length)$('records').textContent=t('첫 대결을 마치면 여기에 승자가 나타나!',"Finish a battle to see the winner here!")
+  $('records').replaceChildren();for(const h of history){if(!h||!Array.isArray(h.ids)||h.ids.length!==2||!h.ids.every(i=>by.has(i))||![-1,0,1].includes(h.w))continue;const pair=h.ids.map(i=>by.get(i)),el=document.createElement('article');el.className='record';el.innerHTML=`${img(pair[h.w]||pair[0])}<div><b>${h.w<0?t("무승부","Tie"):esc(pair[h.w].name)+" "+t("승리","wins")}</b><p>${pair.map(x=>esc(x.name)).join(t(' 대 '," vs. "))}</p></div><button>${t("다시 대결","Rematch")}</button>`;el.lastElementChild.onclick=()=>{usePair(h.ids);go('battle');battle()};$('records').append(el)}if(!$('records').children.length)$('records').textContent=t('첫 대결을 마치면 여기에 승자가 나타나!',"Finish a battle to see the winner here!")
  }
  function usePair(ids){pair=ids.map(i=>by.get(i));refresh()}
  function go(name){

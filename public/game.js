@@ -34,50 +34,41 @@ const Game=(()=>{
      const similarity=1-row[n.length]/Math.max(q.length,n.length);if(similarity>score){score=similarity;best=x.p}
    }return best
  }
- const hp=p=>p.dex===292?1:p.stats[0]+75;
+ // Level 50, 31 IVs, 0 EVs, neutral Nature. Species stats stay available for the Pokédex.
+ function hp(p){
+   if(p.dex===292)return 1;
+   // Tera Shift changes Terapagos to its Terastal Form (base HP 95) on entry.
+   const base=p.dex===1024?95:p.stats[0];
+   return Math.floor((2*base+31)*50/100)+60;
+ }
  const effect=(t,p,d)=>p.types.reduce((v,j)=>v*d.chart[t-1][j-1],1);
- function move(a,b,id,d){
-   const m=d.moves[id],physical=m.category===2,attack=a.stats[physical?1:3]+20,defense=b.stats[physical?2:4]+20;
-   const factor=id===165?1:effect(m.type,b,d),stab=id!==165&&a.types.includes(m.type)?1.5:1;
-   const base=(Math.floor(Math.floor(22*m.power*attack/defense)/50)+2)*factor*stab;
-   return {id,m,base,attack,defense,factor,score:base*m.accuracy/100}
+ function describe(e,pair,d,en=false){
+   const p=pair[e.i].name,move=d.moves[e.move],name=move?(en?move.en:move.name):(en?'a move':'기술');
+   if(e.kind==='cant')return en?p+' could not move this turn.':p+'는 이번 차례에 움직이지 못했어.';
+   if(e.kind==='heal')return en?p+' recovered '+e.damage+' HP.':p+'의 HP가 '+e.damage+' 회복됐어.';
+   if(e.kind==='indirect')return en?p+' lost '+e.damage+' HP from a battle effect.':p+'의 HP가 전투 효과로 '+e.damage+' 줄었어.';
+   const lead=en?p+' used '+name+'! ':p+'의 '+name+'! ';
+   const words={strong:['효과가 굉장해!','Super effective!'],weak:['효과가 약해.','It was resisted.'],miss:['빗나갔어.','It missed.'],immune:['효과가 없어.','No effect.'],prepare:['다음 공격을 준비해!','Charging up!'],fail:['이번에는 실패했어.','It failed this turn.']};
+   return lead+(words[e.effect]?.[en?1:0]||'')+(e.crit?(en?' Critical hit!':' 급소에 맞았어!'):'')+(e.damage?' −'+e.damage+' HP':'');
  }
- function plan(pair,d){
-   const lists=pair.map((p,i)=>{
-     const user=p.moves.includes(144)&&!p.moves.some(id=>d.moves[id].power)?pair[1-i]:p;
-     return user.moves.filter(id=>d.moves[id].power).map(id=>move(user,pair[1-i],id,d)).sort((a,b)=>b.score-a.score)
-   });
-   return {pair,lists,struggle:pair.map((p,i)=>move(p,pair[1-i],165,d))}
- }
- function run({pair,lists,struggle},rng=Math.random,record=true){
-   const h=pair.map(hp),pp=lists.map(l=>l.map(v=>v.m.pp)),events=[];
-   for(let round=1;;round++){
-     const picks=lists.map((l,i)=>{let k=l.findIndex((v,j)=>pp[i][j]>0&&v.factor>0);if(k<0)k=l.findIndex((v,j)=>pp[i][j]>0);return [k,k<0?struggle[i]:l[k]]});
-     const first=(picks[0][1].m.priority-picks[1][1].m.priority||pair[0].stats[5]-pair[1].stats[5]||rng()-.5)>=0?0:1;
-     for(const i of [first,1-first]){
-       const j=1-i,[k,v]=picks[i];if(k>=0)pp[i][k]--;
-       const hit=rng()<v.m.accuracy/100,crit=hit&&rng()<1/24;
-       const damage=hit&&v.factor>0?Math.min(h[j],Math.max(1,Math.floor(v.base*(crit?1.5:1)*(.85+rng()*.15)))):0;
-       h[j]-=damage;
-       const recoil=v.id===165?Math.min(h[i],Math.max(1,Math.floor(hp(pair[i])/4))):0;h[i]-=recoil;
-       if(record)events.push({i,j,move:v.id,damage,crit,hit,factor:v.factor,recoil,attack:v.attack,defense:v.defense,hp:[...h],round});
-       if(!h[i]||!h[j])return {winner:h[i]?i:j,events}
-     }
-   }
- }
- function odds(plan,n=400){let w=0;for(let i=0;i<n;i++)if(run(plan,Math.random,false).winner===0)w++;let a=Math.round(100*w/n);return [a,100-a]}
- function explain(r,pair,d,lang="ko"){
-   const w=r.winner,l=1-w,all=r.events,top=all.filter(e=>e.i===w&&e.damage).sort((a,b)=>b.damage-a.damage)[0];
-   const enemy=all.filter(e=>e.i===l),miss=enemy.find(e=>!e.hit),end=all.at(-1),weak=enemy.find(e=>e.factor<1);
-   if(lang==='en'){
-     const win=top?d.moves[top.move].en+(top.factor>1?' hit a weakness for '+top.factor+'× damage!':top.crit?' landed a critical hit!':' took away '+top.damage+' HP in one hit!'):'It held on while the other Pokémon lost energy using Struggle!';
-     const loss=!enemy.length?'The other Pokémon moved first and finished before this one could use a move.':end.i===l&&end.recoil?'Struggle used up some of its own HP.':miss?d.moves[miss.move].en+' missed, costing it a turn.':weak?d.moves[weak.move].en+' had only '+weak.factor+'× effect.':top&&top.attack>top.defense?'The winning move used a stronger attack stat than the defense it faced.':'The other Pokémon held on and '+d.moves[end.move].en+' decided the battle.';
-     return [win,loss]
-   }
-   const win=top?`${d.moves[top.move].name} 기술이 ${top.factor>1?`약점을 찔러 ${top.factor}배 효과를 냈어`:top.crit?'급소에 맞았어':`체력을 한 번에 ${top.damage}만큼 줄였어`}!`:'상대가 몸부림을 쓰고 지칠 때까지 버텼어!';
-   const loss=!enemy.length?(pair[w].stats[5]>pair[l].stats[5]?'상대 스피드가 더 빨랐고, ':'상대가 먼저 움직여서 ' )+'기술을 쓸 차례가 오지 않았어.':end.i===l&&end.recoil?'몸부림을 쓸 때마다 자기 체력도 줄었어.':miss?`${d.moves[miss.move].name} 기술이 빗나가서 그 차례를 놓쳤어.`:weak?`${d.moves[weak.move].name} 기술은 상대에게 ${weak.factor}배 효과만 냈어.`:top&&top.attack>top.defense?`상대의 ${d.moves[top.move].category===2?'공격이 내 방어':'특수공격이 내 특수방어'}보다 높아서 그 기술을 버티기 어려웠어.`:`기술을 ${enemy.filter(e=>e.hit).length}번 맞혔지만 상대가 버텼고, ${d.moves[end.move].name} 기술이 승부를 갈랐어.`;
+ function explain(result,pair,d,lang='ko'){
+   const en=lang==='en',w=result.winner,events=result.events;
+   if(w<0)return [result.capped?(en?'Both held on for 100 turns.':'두 친구 모두 100턴 동안 버텼어.'):(en?'The simulator recorded a tie.':'두 친구가 무승부를 기록했어.'),''];
+   const wins=events.filter(e=>e.i===w&&e.kind==='move'&&e.damage>0);
+   const strongest=wins.sort((a,b)=>b.damage-a.damage)[0];
+   const other=events.filter(e=>e.i===1-w&&e.kind==='move');
+   const block=other.find(e=>e.effect==='immune'),miss=other.find(e=>e.effect==='miss'),resist=other.find(e=>e.effect==='weak');
+   const last=events.at(-1);
+   const win=strongest?describe(strongest,pair,d,en):last?describe(last,pair,d,en):(en?'The battle ended.':'대결이 끝났어.');
+   let loss;
+   if(block){const wonder=block.reason==='ability: Wonder Guard';
+     loss=wonder?(en?'Wonder Guard blocked a move that did not hit a weakness.':'불가사의부적 특성이 약점을 찌르지 못한 기술을 막았어.'):describe(block,pair,d,en);
+   }else if(!other.length)loss=en?'The other side acted before it could use a move.':'상대가 먼저 움직여 기술을 쓸 기회를 얻지 못했어.';
+   else if(last?.kind==='indirect'&&last.i===1-w)loss=describe(last,pair,d,en);
+   else if(miss||resist)loss=describe(miss||resist,pair,d,en);
+   else {const dealt=other.reduce((sum,e)=>sum+e.damage,0);loss=en?'Its moves dealt '+dealt+' HP of damage, but the opponent held on.':'기술로 상대의 HP를 총 '+dealt+' 줄였지만 상대가 버텼어.'}
    return [win,loss]
  }
- return {types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,plan,run,odds,explain}
+ return {types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,describe,explain}
 })();
 if(typeof module!=='undefined')module.exports=Game;else window.Game=Game;
