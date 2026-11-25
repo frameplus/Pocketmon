@@ -14,7 +14,7 @@ try{
   await page.locator('#q1').fill('ㅍㅋㅊ');await page.locator('#s1 button').first().click();
   await page.waitForFunction(()=>[...document.querySelectorAll('#battle img')].every(i=>i.complete&&i.naturalWidth>0));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});assert.equal(await page.locator('#prediction').getAttribute('open'),null);await page.locator('#again').click();await page.locator('#result h2').waitFor({timeout:60000});
-  await page.locator('nav a[href="#history"]').click();assert.equal(await page.locator('.record').count(),2);
+  await page.locator('nav a[href="#history"]').click();await page.locator('#history .record').nth(1).waitFor();assert.equal(await page.locator('.record').count(),2);
   await page.locator('nav a[href="#dex"]').click();await page.locator('#dexquery').fill('Terapagos');await page.locator('#catalog button').first().click();await page.locator('#mine').click();assert.equal(await page.locator('#slot0 h2').innerText(),'테라파고스');
   await page.locator('nav a[href="#friend"]').click();await page.locator('#message').fill('꼬부기는 무슨 기술을 써?');await page.locator('#chat button').click();await page.waitForFunction(()=>document.querySelector('#talk').innerText.includes('물대포'));
   await page.context().grantPermissions(['microphone'],{origin:new URL(url).origin});assert.ok(await page.evaluate(async()=>{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const ok=stream.getAudioTracks().some(t=>t.readyState==='live');stream.getTracks().forEach(t=>t.stop());return ok}));
@@ -25,6 +25,6 @@ try{
   await page.locator('nav a[href="#battle"]').click();if(process.env.SCREENSHOTS){fs.mkdirSync('screenshots',{recursive:true});await page.screenshot({path:`screenshots/arena-${width}.png`,fullPage:true})}
   assert.deepEqual(errors,[]);await page.close();console.log('PASS browser',width,height,'search/forms/stats/art/battle/replay/friend/history/PIN/mic events')
  }
-if(process.env.ARENA_URL){const a=await fetch(url+'/api/friend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pair:[25,7],focus:25,lastIntent:'strength',text:'이 친구를 한 문장으로 설명해 줄래?'})});assert.equal(a.status,200);const reply=await a.json();assert.equal(reply.model,true,'self-hosted model processes an unscripted question');assert.match(reply.reply,/[가-힣]/);console.log('PASS live local Korean inference')}
+if(process.env.ARENA_URL||process.env.FRIEND_BINARY){const a=await fetch(url+'/api/friend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pair:[25,7],focus:25,lastIntent:'strength',text:'이 친구를 한 문장으로 설명해 줄래?'})});assert.equal(a.status,200);const reply=await a.json();assert.equal(reply.model,true,'self-hosted model processes an unscripted question');assert.match(reply.reply,/[가-힣]/);console.log('PASS live local Korean inference')}
 }finally{await browser?.close();server?.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});

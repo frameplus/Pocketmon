@@ -20,8 +20,13 @@ jobs:
       - run: npm install --no-save --ignore-scripts playwright@1.55.0
       - run: google-chrome --version
         name: Verify installed Chrome
+      - name: Prepare local Korean conversation model
+        run: |
+          mkdir -p "$RUNNER_TEMP/friend"
+          cd "$RUNNER_TEMP/friend"
+          python3 "$GITHUB_WORKSPACE/scripts/model.py"
       - name: Test preview in Chromium
-        run: CHROME_BIN=/usr/bin/google-chrome SCREENSHOTS=1 node test/browser.cjs
+        run: FRIEND_BINARY="$RUNNER_TEMP/friend/build/bin/llama-server" FRIEND_MODEL="$RUNNER_TEMP/friend/friend.gguf" CHROME_BIN=/usr/bin/google-chrome SCREENSHOTS=1 node test/browser.cjs
       - name: Wait for this release on Railway and test its public address
         if: github.event_name == 'push'
         env:

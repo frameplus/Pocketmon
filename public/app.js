@@ -101,6 +101,6 @@
  $('dexquery').oninput=()=>{pageSize=36;catalog()};$('more').onclick=()=>{pageSize+=36;catalog()};
  $('catalog').onclick=e=>{const btn=e.target.closest('[data-card]');if(!btn)return;const p=by.get(+btn.dataset.card);openModal(card(p,'전국도감')+'<button id="mine">내 카드로</button><button id="theirs">상대 카드로</button>');for(let [n,i] of [['mine',0],['theirs',1]])$(n).onclick=()=>{$('modal').close();choose(i,p);go('battle')}};
  $('chat').onsubmit=e=>{e.preventDefault();ask($('message').value)};$('examples').onclick=e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent)};
- document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=mic);window.onhashchange=()=>go(location.hash.slice(1));document.addEventListener('click',e=>{if(!e.target.closest('.searchbox'))document.querySelectorAll('.suggest').forEach(x=>x.replaceChildren())});
+ document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=mic);document.querySelectorAll('header a[href^="#"]').forEach(a=>a.onclick=e=>{e.preventDefault();if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);go(a.hash.slice(1))});window.onhashchange=()=>go(location.hash.slice(1));document.addEventListener('click',e=>{if(!e.target.closest('.searchbox'))document.querySelectorAll('.suggest').forEach(x=>x.replaceChildren())});
  drawField($('land'));refresh();$('loading').hidden=true;go(location.hash.slice(1));bubble('안녕! 좋아하는 포켓몬 이름을 말해 줘.',false);
 })().catch(()=>{document.getElementById('loading').textContent='도감을 열지 못했어. 새로고침해서 다시 만나자!'});
