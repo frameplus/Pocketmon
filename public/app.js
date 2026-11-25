@@ -271,7 +271,7 @@
    stadium=createStadium(view);stadium.select(pair);return stadium;
  }).catch(()=>{view.dataset.world='fallback'});
  if('IntersectionObserver' in window){
-  const watch=new IntersectionObserver(entries=>{if(entries[0].isIntersecting){watch.disconnect();initWorld()}},{rootMargin:'450px'});watch.observe(view);
+  const watch=new IntersectionObserver(entries=>{if(entries.at(-1).isIntersecting){watch.disconnect();initWorld()}},{rootMargin:'450px'});watch.observe(view);
  }else initWorld();
  refresh();$('loading').hidden=true;go(location.hash.slice(1));bubble(t('안녕! 좋아하는 포켓몬 이름을 말해 줘.',"Hi! Tell me the name of your favorite Pokémon."),false);
 })().catch(()=>{document.getElementById('loading').textContent=Locale.t('도감을 열지 못했어. 새로고침해서 다시 만나자!','Could not open the Pokédex. Please refresh to try again.')});

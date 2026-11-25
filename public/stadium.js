@@ -289,7 +289,7 @@ export function createStadium(field){
   paintSparks();renderer.render(scene,camera);frame=requestAnimationFrame(render);
  }
  function wake(){if(!frame&&!stopped&&visible&&!document.hidden){last=0;frame=requestAnimationFrame(render)}}
- const observer=new IntersectionObserver(rows=>{visible=rows[0].isIntersecting;wake()});observer.observe(field);
+ const observer=new IntersectionObserver(rows=>{visible=rows.at(-1).isIntersecting;wake()});observer.observe(field);
  document.addEventListener('visibilitychange',wake);
  field.dataset.world='on';
  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();stopped=true;cancelAnimationFrame(frame);delete field.dataset.world;delete field.dataset.mesh0;delete field.dataset.mesh1;observer.disconnect();sizeObserver.disconnect();requests.forEach(c=>c?.abort());document.removeEventListener('visibilitychange',wake)});
