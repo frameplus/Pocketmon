@@ -47,15 +47,15 @@ const server=http.createServer(async(req,res)=>{
   if(p==='/health')return send(200,{version:2,release:process.env.RAILWAY_GIT_COMMIT_SHA||null,species:1025,mega:by.size-1025});
   if(p==='/names')return send(200,d.pokemon.filter(x=>x.id===x.dex).map(x=>[x.id,x.name]));
   if(/^\/type\/\d+$/.test(p)){const m=by.get(Number(p.split('/').pop())),types=['','normal','fighting','flying','poison','ground','rock','bug','ghost','steel','fire','water','grass','electric','psychic','ice','dragon','dark','fairy'];return m?send(200,{types:m.types.map(t=>types[t]),stats:Object.fromEntries(['hp','attack','defense','special-attack','special-defense','speed'].map((s,i)=>[s,m.stats[i]])),moves:m.moves.map(i=>d.moves[i].name)}):send(404,{error:'unknown'})}
-  const model=/^\/models\/(\d+)\.glb$/.exec(p);
+  const modelRoute=/^\/models\/(\d+)\.glb$/.exec(p);
   let modelFile;
-  if(model){try{modelFile=await require('./models').locate(Number(model[1]))}catch{return send(503,{error:'model unavailable'})}
+  if(modelRoute){try{modelFile=await require('./models').locate(Number(modelRoute[1]))}catch{return send(503,{error:'model unavailable'})}
    if(!modelFile)return send(404,{error:'no model for this form'});
   }
   const art=p.match(/^\/art\/(\d+)$/),index=p==='/'||p==='/index.html',file=modelFile||(index?path.join(__dirname,'index.html'):path.join(pub,art?'art/'+Number(art[1])+'.png':p.slice(1)));
   if(!modelFile&&!index&&!file.startsWith(pub+'/'))return send(404,{error:'unknown'});
   const stat=await fs.promises.stat(file);if(!stat.isFile())return send(404,{error:'unknown'});
-  res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'text/plain','Content-Length':stat.size,'Cache-Control':model||art||p.startsWith('/fighters/')?'public,max-age=604800':'no-cache','X-Content-Type-Options':'nosniff','Permissions-Policy':'camera=(), microphone=(self)'});
+  res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'text/plain','Content-Length':stat.size,'Cache-Control':modelRoute||art||p.startsWith('/fighters/')?'public,max-age=604800':'no-cache','X-Content-Type-Options':'nosniff','Permissions-Policy':'camera=(), microphone=(self)'});
   if(req.method==='HEAD')return res.end();fs.createReadStream(file).on('error',()=>res.destroy()).pipe(res)
  }catch{if(!res.headersSent)send(404,{error:'unavailable'});else res.destroy()}
 });
