@@ -14,7 +14,7 @@
  let powerOrder=false;
  const badges=p=>p.types.map(t=>`<span class="badge">${G.icons[t]} ${types[t]}</span>`).join('');
  const img=(p,extra='')=>`<img src="/art/${p.id}" alt="${esc(p.name)}" ${extra}>`;
- let dismissLesson;
+ const combat=createCombat($('battlefield'));
  let readingState='idle';
  const narrator=createNarrator(lang,state=>{
    readingState=state;
@@ -74,11 +74,16 @@
   q.onkeydown=e=>{if(e.key==='Enter')s.querySelector('button')?.click();if(e.key==='Escape')s.replaceChildren();if(e.key==='ArrowDown'){e.preventDefault();s.querySelector('button')?.focus()}};
   el.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{unlockSound();choose(i,by.get(+b.dataset.form));say(pair[i].name+'!')})
  }
- function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${img(p)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
+ function fighter(p,side){
+  const animated=side?p.battleFront:p.battleBack;
+  if(!animated)return img(p);
+  return `<picture class="battle-sprite"><source media="(prefers-reduced-motion: no-preference)" srcset="/fighters/${side?'front':'back'}/${p.id}.gif">${img(p)}</picture>`;
+ }
+ function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${fighter(p,i)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
-  $('battlefield').dataset.scene='ready';dismissLesson?.();narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
+  $('battlefield').dataset.scene='ready';combat.clear();narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
   slot(0);slot(1);$('odds').replaceChildren();forecastVersion=-1;
-  $('actors').innerHTML=actors();$('round').textContent=t('준비 완료',"Ready");$('log').textContent=pair.map(x=>x.name).join(t(' 대 '," vs. "))+'!';$('fx').textContent='';$('fx').className='';
+  $('actors').innerHTML=actors();$('round').textContent=t('준비 완료',"Ready");$('log').textContent=pair.map(x=>x.name).join(t(' 대 '," vs. "))+'!';
  }
  async function matchRequest(route,method='GET'){
   const path='/api/'+route+'/'+pair.map(p=>p.id).join('/');
@@ -105,21 +110,6 @@
   });
  }
  const pause=ms=>new Promise(r=>setTimeout(r,ms));
- async function showHitLesson(event){
-  const panel=$('hit-lesson'),text=G.impactLesson(event,pair,d,en);
-  $('hit-reason').textContent=text;panel.hidden=false;
-  let timer,release;
-  const dismissed=new Promise(resolve=>{release=resolve});
-  function close(){
-    clearTimeout(timer);panel.hidden=true;dismissLesson=null;
-    $('continue-hit').onclick=null;narrator.stop();release();
-  }
-  dismissLesson=close;$('continue-hit').onclick=close;
-  timer=setTimeout(close,18000);
-  // Keep the text readable when speech is muted or unavailable.
-  await Promise.race([dismissed,Promise.all([pause(3200),say(text)])]);
-  if(dismissLesson===close)close();
- }
  async function entrance(id){
   const field=$('battlefield'),still=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   field.dataset.scene='throw';
@@ -146,24 +136,23 @@
   if(id!==epoch)return;
   updateHP(result.initial,result.initial);
   const events=result.events,long=events.length>22;
-  const lessonIndex=events.findIndex(G.bigHit);
-  const highlights=long?events.filter((e,k)=>k===lessonIndex||k===lessonIndex-1||k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
+  const highlights=long?events.filter((e,k)=>k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
   for(const e of highlights){
-   if(id!==epoch)return;const a=$('a'+e.i),b=$('a'+e.j),fx=$('fx'),m=d.moves[e.move];
-   for(let i of [0,1])$('a'+i).classList.remove('hit','strike');
-   fx.className='';fx.textContent='';void fx.offsetWidth;
-   if(e.kind==='move'&&m){
-    a.classList.add('strike');if(e.damage)b.classList.add('hit');
-    fx.textContent=e.hit?(m.category===2?'✴':G.icons[m.type]):'· · ·';fx.style.setProperty('--trail',G.colors[m.type]);
-    fx.className='shot '+(m.priority>0?'swift':m.category===2?'impact':m.power>=90?'surge':'beam')+(e.i?' reverse':'');
-   }
+   if(id!==epoch)return;
+   const m=d.moves[e.move],description=G.describe(e,pair,d,en);
    $('round').textContent=(long?t('주요 장면 · ','Highlights · '):'')+(en?'Turn '+e.round:e.round+'턴');
-   $('log').textContent=G.describe(e,pair,d,en);updateHP(e.hp,e.max);
-   if(e===events[lessonIndex])await showHitLesson(e);else await pause(650)
+   if(e.kind==='move'&&m){
+    $('log').textContent=en?`${pair[e.i].name} used ${m.name}!`:`${pair[e.i].name}의 ${m.name}!`;
+    await combat.play(e,m,{typeName:types[e.matchup?.type||m.type],impact(){
+     if(id===epoch){updateHP(e.hp,e.max);$('log').textContent=description}
+    }});
+   }else{
+    $('log').textContent=description;updateHP(e.hp,e.max);await pause(500);
+   }
   }
   if(id!==epoch)return;
   const w=result.winner,why=G.explain(result,pair,d,lang);
-  $('round').textContent=t('대결 끝','Finished');$('log').textContent=t('두 친구 모두 수고했어!','Well played, both of you!');$('fx').textContent='';$('prediction').open=false;
+  $('round').textContent=t('대결 끝','Finished');$('log').textContent=t('두 친구 모두 수고했어!','Well played, both of you!');$('prediction').open=false;
   const v=pair[w],l=pair[1-w],title=v?v.name+t(' 승리!',' wins!'):t('무승부!','A tie!');
   const reading=[title,...why].filter(Boolean).join(' ');
   const section=(label,body)=>`<section class="recap-side"><h3>${esc(label)}</h3><p>${esc(body)}</p></section>`;

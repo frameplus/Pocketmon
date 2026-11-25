@@ -2,7 +2,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
 const pub=path.join(__dirname,'public'),d=JSON.parse(fs.readFileSync(path.join(pub,'dex.json'))),by=new Map(d.pokemon.map(p=>[p.id,p]));
 const simulator=require('./simulator.js').makeSimulator(d),forecast=require('./forecasts.js').createForecasts();
 const answer=require('./friend.js')(d,forecast);
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.png':'image/png','.woff2':'font/woff2','.json':'application/json; charset=utf-8'};
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.png':'image/png','.gif':'image/gif','.woff2':'font/woff2','.json':'application/json; charset=utf-8'};
 const visitDir=process.env.RAILWAY_VOLUME_MOUNT_PATH || (process.env.RAILWAY_ENVIRONMENT_ID?'/data':require('node:os').tmpdir());
 fs.mkdirSync(visitDir,{recursive:true});
 const visitors=require('./visitors.js').openCounter(path.join(visitDir,'pocketmon-visits.sqlite'));
@@ -50,7 +50,7 @@ const server=http.createServer(async(req,res)=>{
   const art=p.match(/^\/art\/(\d+)$/),index=p==='/'||p==='/index.html',file=index?path.join(__dirname,'index.html'):path.join(pub,art?'art/'+Number(art[1])+'.png':p.slice(1));
   if(!index&&!file.startsWith(pub+'/'))return send(404,{error:'unknown'});
   const stat=await fs.promises.stat(file);if(!stat.isFile())return send(404,{error:'unknown'});
-  res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'text/plain','Content-Length':stat.size,'Cache-Control':art?'public,max-age=604800':'no-cache','X-Content-Type-Options':'nosniff','Permissions-Policy':'camera=(), microphone=(self)'});
+  res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'text/plain','Content-Length':stat.size,'Cache-Control':art||p.startsWith('/fighters/')?'public,max-age=604800':'no-cache','X-Content-Type-Options':'nosniff','Permissions-Policy':'camera=(), microphone=(self)'});
   if(req.method==='HEAD')return res.end();fs.createReadStream(file).on('error',()=>res.destroy()).pipe(res)
  }catch{if(!res.headersSent)send(404,{error:'unavailable'});else res.destroy()}
 });
