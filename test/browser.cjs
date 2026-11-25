@@ -9,6 +9,10 @@ try{
   const page=await browser.newPage({viewport:{width,height}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto(url);await page.locator('#slot0 h2').waitFor();assert.equal(await page.locator('#slot0 h2').innerText(),'피카츄');
+  if(width<680){
+    const brand=await page.locator('.brand').boundingBox(),lang=await page.locator('#language').boundingBox();
+    assert.ok(brand.x+brand.width<=lang.x,'Brand stays on the left of language settings');
+  }
   const drawButton=page.getByRole('button',{name:'랜덤 카드 뽑기',exact:true});
   const currentCards=()=>page.locator('.pair .art img').evaluateAll(imgs=>imgs.map(img=>img.getAttribute('src')));
   let previousCards=await currentCards();
