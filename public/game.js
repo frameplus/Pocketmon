@@ -82,7 +82,8 @@ const Game=(()=>{
    if(e.effect==='strong'||e.effect==='weak')facts.push(typeLesson(e,pair,d,en));
    if(e.crit)facts.push(en?'It struck a critical spot, so the hit was stronger!':'급소에 맞아서 더 강했어!');
    if(!facts.filter(Boolean).length && move?.power>=80){
-     facts.push(en?`${name} starts with ${move.power} power. It can hit hard even without a type advantage!`:`${name} 기술은 기본 위력이 ${move.power}이야. 약점을 찌르지 않아도 강하게 맞을 수 있어!`);
+     const type=(en?englishTypes:types)[e.matchup?.type||move.type];
+     facts.push(en?`${name} is a ${type} move with ${move.power} base power. It can hit hard even without a type advantage!`:`${name}은 기본 위력이 ${move.power}인 ${type} 기술이야. 약점을 찌르지 않아도 강하게 맞을 수 있어!`);
    }
    if(!facts.filter(Boolean).length){
      const target=en?pair[e.j].en:pair[e.j].name;
@@ -101,6 +102,7 @@ const Game=(()=>{
    function hit(e){
      const lead=en?`On turn ${e.round}, ${names[e.i]} used ${moveName(e)} and took away ${e.damage} HP.`:
        `${e.round}턴에 ${names[e.i]}의 ${moveName(e)}! 상대 체력이 한 번에 ${e.damage}만큼 줄었어.`;
+     if(bigHit(e))return lead+' '+impactLesson(e,pair,d,en);
      const critical=e.crit?(en?' It also landed a critical hit, which made it stronger.':' 급소에도 맞아서 더 강했어.'):'';
      return [lead,typeLesson(e,pair,d,en)].filter(Boolean).join(' ')+critical;
    }
@@ -136,6 +138,17 @@ const Game=(()=>{
      const e=lost.find(e=>e.effect==='prepare')||lost[0];
      whyLost=en?`On turn ${e.round}, ${names[l]} used ${moveName(e)}. ${e.effect==='prepare'?'It needed a turn to charge.':'None of its moves dealt direct damage in this battle.'}`:
        `${e.round}턴에 ${names[l]} 쪽은 ${moveName(e)} 기술을 썼어. ${e.effect==='prepare'?'힘을 모으는 데 한 차례가 필요했어.':'이번 대결에서는 상대에게 직접 피해를 준 기술이 없었어.'}`;
+   }
+   const firstBig=events.find(bigHit);
+   if(firstBig&&firstBig!==big){
+     // Include the first big hit on the results screen even if the other player ultimately won.
+     if(firstBig===reply&&!wonByEffect&&!immune&&!resisted&&!miss){
+       if(reply.effect!=='strong')whyLost+=' '+impactLesson(reply,pair,d,en);
+       else if(reply.crit)whyLost+=en?' It also hit a critical spot.':' 급소에도 맞았어.';
+     }else if(firstBig!==resisted){
+       if(firstBig.i===w)whyWon+=' '+hit(firstBig);
+       else whyLost+=' '+hit(firstBig);
+     }
    }
    return [whyWon,whyLost]
  }

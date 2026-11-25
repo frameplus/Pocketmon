@@ -95,8 +95,3 @@ nav a.active { color: #174cb2; background: #edf3ff; }
 .recap-side p { margin:0; font-size:16px; line-height:1.65; word-break:keep-all; overflow-wrap:anywhere; }
 #read-result { min-height:46px; color:#174579; background:#edf4ff; }
 #read-status { display:block; margin-top:6px; }
-
-#hit-lesson { margin:0 12px 12px; padding:14px 16px; border:1px solid #b7d2f4; border-radius:14px; background:#edf5ff; color:#183f70; }
-#hit-lesson strong { font-size:17px; }
-#hit-lesson p { margin:6px 0 10px; font-size:16px; line-height:1.55; }
-#continue-hit { min-height:44px; padding:6px 16px; background:#fff; color:#174579; border:1px solid #abcaed; }

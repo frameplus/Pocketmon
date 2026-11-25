@@ -97,9 +97,21 @@ for r in rows("type_efficacy"):
     a,b=int(r["damage_type_id"]),int(r["target_type_id"])
     if max(a,b)<=18: chart[a-1][b-1]=int(r["damage_factor"])/100
 assert len(dex)==1073 and all(all(p["stats"]) and p["types"] for p in dex.values())
+# Numeric IDs present in PokeAPI's pinned Showdown front/back GIF directories.
+# Keep builds independent of API directory listings. Forms without a sprite use cached card art.
+def in_ranges(i,ranges):
+    return any(start<=i<=end for start,end in ranges)
+front_sprites=[(1, 989), (996, 1005), (1007, 1007), (1009, 1009), (1011, 1016), (1018, 1021), (10001, 10256), (10258, 10263), (10272, 10272), (10278, 10286)]
+back_sprites=[(1, 989), (996, 1005), (1007, 1007), (1009, 1009), (1011, 1016), (1018, 1021), (10001, 10083), (10085, 10194), (10196, 10196), (10198, 10208), (10212, 10225), (10228, 10256), (10258, 10263), (10272, 10272), (10278, 10286)]
+for i,p in dex.items():
+    p["battleFront"]=in_ranges(i,front_sprites)
+    p["battleBack"]=in_ranges(i,back_sprites)
 (out/"dex.json").write_text(json.dumps(dict(pokemon=list(dex.values()),moves=moves,chart=chart),ensure_ascii=False,separators=(",",":")))
 def art(i):
     fetch(f"https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/pokemon/other/official-artwork/{i}.png",out/"art"/f"{i}.png",b"\x89PNG\r\n\x1a\n")
+    for folder,key,prefix in [("front","battleFront",""),("back","battleBack","back/")]:
+        if dex[i][key]:
+            fetch(f"https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/pokemon/other/showdown/{prefix}{i}.gif",out/"fighters"/folder/f"{i}.gif",b"GIF")
 with ThreadPoolExecutor(max_workers=18) as workers: list(workers.map(art,dex))
 fetch("https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2",out/"pretendard.woff2",b"wOF2")
 fetch("https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/LICENSE",out/"font-license.txt")
