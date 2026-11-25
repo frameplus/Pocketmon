@@ -5,6 +5,7 @@ let browser;
 try{
  for(let i=0;i<30;i++){try{if((await fetch(url+'/health')).ok)break}catch{}await new Promise(r=>setTimeout(r,300))}
  browser=await chromium.launch({executablePath:process.env.CHROME_BIN||undefined,args:['--no-sandbox','--use-fake-device-for-media-stream']});
+ await require('./hit-lesson.cjs')(browser,url);
  await require('./recap.cjs')(browser,url);
  for(const [width,height] of [[390,844],[768,1024],[1366,900]]){
   const page=await browser.newPage({viewport:{width,height}}),errors=[];

@@ -26,12 +26,13 @@ module.exports=async function testRecap(browser,url){
   await page.goto(url);await page.locator('#start').click();
   await page.locator('#result h2').waitFor({timeout:60000});
   assert.match(await page.locator('#result').innerText(),/불가사의부적/);
-  await page.waitForFunction(()=>window.audibleBuffers>=2);
+  await page.waitForFunction(()=>document.querySelector('#read-result').textContent.includes('멈추기')&&!document.querySelector('#read-status').textContent);
+  const beforeReplay=await page.evaluate(()=>window.audibleBuffers);
   assert.ok(speech.some(s=>s.includes('승리')&&s.includes('불가사의부적')));
   await page.locator('#read-result').click();assert.match(await page.locator('#read-result').innerText(),/다시 듣기/);
   await page.evaluate(()=>window.useBrokenVoice());
   await page.locator('#read-result').click();
-  await page.waitForFunction(()=>window.audibleBuffers>=3);
+  await page.waitForFunction(n=>window.audibleBuffers>n,beforeReplay);
   assert.equal(speech.filter(s=>s.includes('불가사의부적')).length,2);
   await page.locator('#settings').click();await page.locator('#sound').click();await page.locator('#close').click();
   const count=speech.length;
