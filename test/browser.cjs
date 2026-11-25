@@ -6,6 +6,7 @@ try{
  for(let i=0;i<30;i++){try{if((await fetch(url+'/health')).ok)break}catch{}await new Promise(r=>setTimeout(r,300))}
  browser=await chromium.launch({executablePath:process.env.CHROME_BIN||undefined,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--use-fake-device-for-media-stream']});
  await require('./stadium.cjs')(browser,url);
+ await require('./transitions.cjs')(browser,url);
  await require('./entrance.cjs')(browser,url);
  await require('./hit-lesson.cjs')(browser,url);
  await require('./recap.cjs')(browser,url);

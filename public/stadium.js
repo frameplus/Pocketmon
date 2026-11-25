@@ -150,7 +150,9 @@ export function createStadium(field){
   if(id===ids[i]||stopped)return;ids[i]=id;requests[i]?.abort();detach(i);
   const control=new AbortController();requests[i]=control;
   try{
-   const res=await fetch('/models/'+id+'.glb',{signal:control.signal});if(!res.ok)return;
+   const res=await fetch('/models/'+id+'.glb',{signal:control.signal});
+   if(res.status===404)return;
+   if(!res.ok)throw Error('Model request failed');
    const gltf=await loader.parseAsync(await res.arrayBuffer(),'');
    if(control.signal.aborted||stopped){disposeModel(gltf.scene);return}
    const model=gltf.scene,base=new T.Group(),pivot=new T.Group();base.add(pivot);pivot.add(model);
@@ -198,7 +200,10 @@ export function createStadium(field){
    slots[i]={base,model,pivot,mixer,idle,attack,scale,height:extent.y*scale,id,joints};
    scene.add(base);base.position.copy(pads[i]);base.position.y=.27;base.rotation.y=angles[i];
    field.dataset['mesh'+i]=String(id);wake();
-  }catch{/* Selection changes and missing models keep their front-facing artwork. */}
+  }catch{
+   // Keep the sprite visible and allow the next selection or battle to retry.
+   if(requests[i]===control&&!control.signal.aborted)ids[i]=0;
+  }
  }
  function select(pair){
   winner=-1;if(stopped)return;

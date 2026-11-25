@@ -16,6 +16,7 @@
  const img=(p,extra='')=>`<img src="/art/${p.id}" alt="${esc(p.name)}" ${extra}>`;
  let stadium,worldBoot;
  const combat=createCombat($('battlefield'),()=>stadium);
+ let listeningSide=null;
  let readingState='idle';
  const narrator=createNarrator(lang,state=>{
    readingState=state;
@@ -31,17 +32,18 @@
  function unlockSound(){if(!mute)narrator.unlock()}
  function notify(s,hold=false){clearTimeout(noticeTimer);$('speech').textContent=s;$('speech').hidden=false;if(!hold)noticeTimer=setTimeout(()=>$('speech').hidden=true,5500)}
  function markMic(on){
-  document.querySelectorAll('.slotmic').forEach((b,i)=>{const listening=on&&activePage==='battle'&&i===target;b.classList.toggle('onair',listening);b.setAttribute('aria-pressed',String(listening))});
+  document.querySelectorAll('.slotmic').forEach((b,i)=>{const listening=on&&activePage==='battle'&&i===listeningSide;b.classList.toggle('onair',listening);b.setAttribute('aria-pressed',String(listening))});
   document.querySelectorAll('[data-mic]').forEach(b=>{b.classList.toggle('onair',on);b.textContent=on?t('● 듣고 있어요!',"● Listening!"):b.closest('#friend')?t('🎙 말하기',"🎙 Talk"):t('🎙 이름 말하기',"🎙 Say a name")})}
  function cancelVoice(){voiceEpoch++;if(rec){let old=rec;rec=null;try{old.abort()}catch{}}narrator.stop();markMic(false);$('speech').hidden=true}
- function mic(){
-  if(rec){rec.stop();return}unlockSound();cancelVoice();let R=window.SpeechRecognition||window.webkitSpeechRecognition;
+ function mic(side=target){
+  if(rec&&side===listeningSide){rec.stop();return}
+  questionEpoch++;unlockSound();cancelVoice();listeningSide=side;target=side;let R=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!R||!window.isSecureContext){notify(t('이 브라우저에서는 들을 수 없어. HTTPS 주소를 Chrome에서 열거나 이름을 입력해 줘.',"Open the secure site in Chrome to use the mic, or type a name."));return}
   const generation=voiceEpoch,r=new R();rec=r;r.lang=t('ko-KR','en-US');r.interimResults=true;r.maxAlternatives=5;let choices=[],failed=false;
   r.onstart=()=>{if(generation===voiceEpoch){markMic(true);notify(t('🔴 듣고 있어요!',"🔴 Listening!"),true)}};
   r.onresult=e=>{if(generation!==voiceEpoch)return;const rows=Array.from(e.results),last=rows.at(-1);const text=rows.map(v=>v[0].transcript).join(' ');notify(t('듣고 있어요! ',"Listening! ")+text,true);if(last.isFinal){choices=[text,...Array.from(last,v=>v.transcript)];r.stop()}};
   r.onerror=e=>{if(generation!==voiceEpoch)return;failed=true;const msg={'not-allowed':t('주소창의 사이트 설정에서 마이크를 허용해 줘.',"Allow microphone access in your browser’s site settings."),'service-not-allowed':t('브라우저에서 음성 인식을 허용해 줘.',"Allow speech recognition in your browser."),'no-speech':t('목소리가 들리지 않았어. 다시 눌러 봐.',"I didn’t hear you. Tap and try again."),'network':t('음성 인식 서버에 연결할 수 없어. 인터넷을 확인하거나 이름을 입력해 줘.',"Speech recognition could not connect. Check your connection or type a name."),'audio-capture':t('마이크가 연결됐는지 확인해 줘.',"Check your microphone connection."),'aborted':t('듣기를 멈췄어.',"Listening stopped.")};notify(msg[e.error]||t('마이크를 다시 눌러 줘.',"Tap the mic and try again."))};
-  r.onend=()=>{if(generation!==voiceEpoch)return;rec=null;markMic(false);if(failed)return;if(!choices.length){notify(t('다시 누르고 말해 줘.',"Tap again and say a name."));return}const ranked=choices.map(t=>[G.heard(idx,t).length,t]).sort((a,b)=>b[0]-a[0]);notify(t('들은 말 · ',"Heard · ")+ranked[0][1]);ask(ranked[0][1])};
+  r.onend=()=>{if(generation!==voiceEpoch)return;rec=null;markMic(false);if(failed)return;if(!choices.length){notify(t('다시 누르고 말해 줘.',"Tap again and say a name."));return}const ranked=choices.map(t=>[G.heard(idx,t).length,t]).sort((a,b)=>b[0]-a[0]);notify(t('들은 말 · ',"Heard · ")+ranked[0][1]);ask(ranked[0][1],side)};
   try{notify(t('마이크 연결 중…',"Connecting microphone…"),true);r.start()}catch{rec=null;notify(t('마이크를 시작할 수 없어. 권한을 확인해 줘.',"Could not start the mic. Check permissions."))}
  }
  function card(p,side){
@@ -70,7 +72,7 @@
   };
   $('draw'+i).onclick=()=>{drawCards(i);$('draw'+i).focus({preventScroll:true})};
   const q=$('q'+i),s=$('s'+i);
-  el.querySelector('.slotmic').onclick=()=>{target=i;mic()};q.onfocus=()=>{target=i};
+  el.querySelector('.slotmic').onclick=()=>mic(i);q.onfocus=()=>{target=i};
   q.oninput=()=>{s.replaceChildren();if(!q.value.trim())return;const found=G.search(idx,q.value);for(const f of found){let b=document.createElement('button');b.type='button';b.innerHTML=img(f)+`<b>${esc(f.name)}</b><small>${f.types.map(t=>types[t]).join('·')}</small>`;b.onclick=()=>{unlockSound();choose(i,f);say(f.name+'!')};s.append(b)}if(!found.length)s.textContent=t('찾는 친구가 없어. 다른 이름을 써 봐.',"No match. Try another name.")};
   q.onkeydown=e=>{if(e.key==='Enter')s.querySelector('button')?.click();if(e.key==='Escape')s.replaceChildren();if(e.key==='ArrowDown'){e.preventDefault();s.querySelector('button')?.focus()}};
   el.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{unlockSound();choose(i,by.get(+b.dataset.form));say(pair[i].name+'!')})
@@ -103,6 +105,7 @@
  },true);
  function actors(){const sizes=G.fieldSizes(pair);return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}" style="--fighter-size:${sizes[i]}">${fighter(p,i)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
+  questionEpoch++;suggested=null;if(rec)cancelVoice();
   $('celebration').hidden=true;
   $('battlefield').dataset.scene='ready';combat.clear();narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
   slot(0);slot(1);$('odds').replaceChildren();forecastVersion=-1;
@@ -147,7 +150,7 @@
   if(id===epoch&&field.dataset.scene==='release')field.dataset.scene='battle';
  }
  async function battle(){
-  if(busy)return;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('celebration').hidden=true;$('start').disabled=true;
+  if(busy)return;questionEpoch++;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('celebration').hidden=true;$('start').disabled=true;
   $('start').textContent=t('대결 중…','Battling…');$('result').hidden=true;$('prediction').open=false;
   $('actors').innerHTML=actors();updateHP(pair.map(G.hp),pair.map(G.hp));
   $('arena').scrollIntoView({block:'center',behavior:'smooth'});
@@ -180,6 +183,7 @@
   if(id!==epoch)return;
   stadium?.finish(result.winner);
   const w=result.winner,why=G.explain(result,pair,d,lang);
+  history=[{ids:pair.map(p=>p.id),w,time:Date.now()},...history].slice(0,24);put('history',history);
   const banner=$('celebration');
   banner.dataset.side=w<0?'tie':String(w);
   $('victory-word').textContent=w<0?'DRAW!':'VICTORY!';
@@ -200,7 +204,6 @@
     if(readingState==='playing'||readingState==='loading'){narrator.stop();return}
     unlockSound();say(reading);
   };
-  history=[{ids:pair.map(p=>p.id),w,time:Date.now()},...history].slice(0,24);put('history',history);
   busy=false;$('start').disabled=false;$('start').textContent=t('↻ 다시 대결','↻ Rematch');$('result').scrollIntoView({block:'nearest',behavior:'smooth'});say(reading)
  }
  function drawCards(side){
@@ -209,7 +212,7 @@
   const pick=()=>pool.splice(Math.floor(Math.random()*pool.length),1)[0];
   if(side===0||side===1){pair[side]=pick();target=side}
   else{pair=[pick(),pick()];target=0}
-  focus=pair[target].id;suggested=null;questionEpoch++;
+  focus=pair[target].id;
   cancelVoice();refresh();
  }
  function openModal(html){$('modalbody').innerHTML=html;if(!$('modal').open)$('modal').showModal()}
@@ -237,22 +240,22 @@
  function usePair(ids){pair=ids.map(i=>by.get(i));refresh()}
  function go(name){
   if(!['battle','dex','friend','history'].includes(name))name='battle';
-  if(activePage!==name){cancelVoice();if(activePage==='battle'&&busy)refresh();activePage=name;window.scrollTo(0,0)}
+  if(activePage!==name){questionEpoch++;cancelVoice();if(activePage==='battle'&&busy)refresh();activePage=name;window.scrollTo(0,0)}
   for(let n of ['battle','dex','friend','history'])$(n).hidden=n!==name;
   document.querySelectorAll('nav a').forEach(a=>{const current=a.hash==='#'+name;a.classList.toggle('active',current);if(current)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   if(location.hash!=='#'+name)window.history.replaceState(null,'','#'+name);
   if(name==='dex')catalog();if(name==='history')records()
  }
  function bubble(text,you){let p=document.createElement('p');p.className='bubble'+(you?' you':'');p.textContent=text;$('talk').append(p);while($('talk').children.length>10)$('talk').firstElementChild.remove()}
- async function ask(text){
-  unlockSound();text=text.trim().slice(0,250);if(!text)return;const seq=++questionEpoch;const prior=lastIntent;
+ async function ask(text,askedSide=target){
+  unlockSound();text=text.trim().slice(0,250);if(!text)return;const seq=++questionEpoch,prior=lastIntent,drawSide=activePage==='battle'?askedSide:undefined;
   bubble(text,true);$('message').value='';
   try{
    let reply;
    if(suggested&&/^(응|그래|좋아|붙여|해봐|yes|ok|sure)[!. ]*$/i.test(text)){reply={action:{kind:'battle',ids:suggested},reply:t('좋아! 함께 배틀 필드로 가자!',"Great! Let’s head to the battlefield!"),focus:suggested[0],intent:'battle'}}
    else{const r=await fetch('/api/friend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,lang,pair:pair.map(x=>x.id),focus,lastIntent:prior})});if(!r.ok)throw Error();reply=await r.json()}
    if(seq!==questionEpoch)return;focus=reply.focus;lastIntent=reply.intent;suggested=reply.suggest||null;bubble(reply.reply,false);
-   if(reply.action){const drawSide=activePage==='battle'?target:undefined;go('battle');if(reply.action.kind==='battle'){usePair(reply.action.ids);battle()}else if(reply.action.kind==='random')drawCards(drawSide);else choose(target,by.get(reply.action.id))}else if(activePage!=='friend')go('friend');say(reply.reply)
+   if(reply.action){go('battle');if(reply.action.kind==='battle'){usePair(reply.action.ids);battle()}else if(reply.action.kind==='random')drawCards(drawSide);else choose(askedSide,by.get(reply.action.id))}else if(activePage!=='friend')go('friend');say(reply.reply)
   }catch{if(seq===questionEpoch)notify(t('친구와 연결하지 못했어. 잠시 뒤에 다시 말해 줘.',"Could not reach your buddy. Try again in a moment."))}
  }
  async function digest(pin,salt){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},key,256);return [...new Uint8Array(bits)].map(v=>v.toString(16).padStart(2,'0')).join('')}
@@ -268,7 +271,7 @@
  $('dexquery').oninput=()=>{pageSize=36;catalog()};$('more').onclick=()=>{pageSize+=36;catalog()};
  $('catalog').onclick=e=>{const btn=e.target.closest('[data-card]');if(!btn)return;const p=by.get(+btn.dataset.card);openModal(card(p,t('전국도감',"National Dex"))+`<button id="mine">${t('내 카드로','Pick for me')}</button><button id="theirs">${t('상대 카드로','Pick as opponent')}</button>`);for(let [n,i] of [['mine',0],['theirs',1]])$(n).onclick=()=>{$('modal').close();choose(i,p);go('battle')}};
  $('chat').onsubmit=e=>{e.preventDefault();ask($('message').value)};$('examples').onclick=e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent)};
- document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=mic);document.querySelectorAll('header a[href^="#"]').forEach(a=>a.onclick=e=>{e.preventDefault();if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);go(a.hash.slice(1))});window.onhashchange=()=>go(location.hash.slice(1));document.addEventListener('click',e=>{if(!e.target.closest('.searchbox'))document.querySelectorAll('.suggest').forEach(x=>x.replaceChildren())});
+ document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=()=>mic());document.querySelectorAll('header a[href^="#"]').forEach(a=>a.onclick=e=>{e.preventDefault();if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);go(a.hash.slice(1))});window.onhashchange=()=>go(location.hash.slice(1));document.addEventListener('click',e=>{if(!e.target.closest('.searchbox'))document.querySelectorAll('.suggest').forEach(x=>x.replaceChildren())});
  buildField($('battlefield'));
  const view=$('battlefield');
  const initWorld=()=>worldBoot??=import('/stadium.js').then(({createStadium})=>{
