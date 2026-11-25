@@ -31,13 +31,20 @@ for r in rows("pokemon_species_names"):
     if r["local_language_id"] in ["3","9"]: names[int(r["pokemon_species_id"])][r["local_language_id"]]=r["name"]
 forms_ko={r["pokemon_form_id"]:r["form_name"] for r in rows("pokemon_form_names") if r["local_language_id"]=="3"}
 forms={int(r["pokemon_id"]):forms_ko[r["id"]] for r in rows("pokemon_forms") if r["is_mega"]=="1" and r["introduced_in_version_group_id"] in ["15","16"]}
+species={int(r["id"]):r for r in rows("pokemon_species")}
+regions=["","kanto","johto","hoenn","sinnoh","unova","kalos","alola","galar","paldea"]
+def region_of(number):
+    if number in (808,809): return "unknown"
+    if 899 <= number <= 905: return "hisui"
+    if 1011 <= number <= 1017 or number==1025: return "kitakami"
+    return regions[int(species[number]["generation_id"])]
 dex={}
 for r in rows("pokemon"):
     i,b=int(r["id"]),int(r["species_id"])
     if i not in forms and (i!=b or i>1025):continue
     en=names[b]["9"]
     if i in forms: en=("Mega "+en+" "+r["identifier"].split("-mega")[-1].strip("-").upper()).strip()
-    dex[i]=dict(id=i,dex=b,name=forms.get(i,names[b]["3"]),en=en,stats=[0]*6,types=[],moves=[])
+    dex[i]=dict(id=i,dex=b,name=forms.get(i,names[b]["3"]),en=en,region=region_of(b),legendary=species[b]["is_legendary"]=="1",mythical=species[b]["is_mythical"]=="1",stats=[0]*6,types=[],moves=[])
 for r in rows("pokemon_stats"):
     i=int(r["pokemon_id"])
     if i in dex: dex[i]["stats"][int(r["stat_id"])-1]=int(r["base_stat"])
@@ -45,11 +52,12 @@ for r in rows("pokemon_types"):
     i=int(r["pokemon_id"])
     if i in dex: dex[i]["types"].append(int(r["type_id"]))
 mn={int(r["move_id"]):r["name"] for r in rows("move_names") if r["local_language_id"]=="3"}
+en_moves={int(r["move_id"]):r["name"] for r in rows("move_names") if r["local_language_id"]=="9"}
 moves={}
 for r in rows("moves"):
     i=int(r["id"])
     if i in mn and int(r["type_id"])<=18:
-        moves[i]=dict(name=mn[i],type=int(r["type_id"]),power=int(r["power"] or 0),accuracy=int(r["accuracy"] or 100),category=int(r["damage_class_id"]),priority=int(r["priority"]),pp=int(r["pp"] or 1))
+        moves[i]=dict(name=mn[i],en=en_moves[i],type=int(r["type_id"]),power=int(r["power"] or 0),accuracy=int(r["accuracy"] or 100),category=int(r["damage_class_id"]),priority=int(r["priority"]),pp=int(r["pp"] or 1))
 learn=defaultdict(dict)
 for r in rows("pokemon_moves"):
     i,m=int(r["pokemon_id"]),int(r["move_id"])

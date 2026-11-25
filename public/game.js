@@ -1,9 +1,18 @@
 const Game=(()=>{
  const types=['','노말','격투','비행','독','땅','바위','벌레','고스트','강철','불꽃','물','풀','전기','에스퍼','얼음','드래곤','악','페어리'];
+ const englishTypes=['','Normal','Fighting','Flying','Poison','Ground','Rock','Bug','Ghost','Steel','Fire','Water','Grass','Electric','Psychic','Ice','Dragon','Dark','Fairy'];
+ const englishStats=['HP','Attack','Defense','Sp. Atk','Sp. Def','Speed'];
+ const total=p=>p.stats.reduce((sum,n)=>sum+n,0);
+ function powerRanks(all){
+   const sorted=[...all].sort((a,b)=>total(b)-total(a)||a.dex-b.dex||a.id-b.id);
+   const ranks=new Map();let previous=-1,rank=0;
+   sorted.forEach((p,i)=>{const points=total(p);if(points!==previous){rank=i+1;previous=points}ranks.set(p.id,rank)});
+   return ranks;
+ }
  const icons=['','✦','✊','🪽','☣','▲','◆','🐞','☾','⬡','🔥','💧','🌿','ϟ','✧','❄','🐉','☽','♥'];
  const colors=['','#817360','#b4543d','#6491b3','#9b60ad','#ad824f','#95824e','#87a33e','#75619b','#65818d','#dc723f','#418ebf','#55a372','#cf9a1b','#bd618f','#4a9ba2','#7867b4','#77647b','#c57b99'];
  const statNames=['HP','공격','방어','특수공격','특수방어','스피드'];
- const norm=s=>String(s).toLowerCase().normalize('NFC').replace(/♀/g,'f').replace(/♂/g,'m').replace(/[^ㄱ-ㅎ가-힣a-z0-9]/g,'');
+ const norm=s=>String(s).toLowerCase().normalize('NFC').replace(/\p{Script=Latin}/gu,c=>c.normalize('NFD').replace(/\p{M}/gu,'')).replace(/♀/g,'f').replace(/♂/g,'m').replace(/[^ㄱ-ㅎ가-힣a-z0-9]/g,'');
  const index=d=>d.pokemon.map(p=>({p,ko:norm(p.name),en:norm(p.en),ini:Array.from(norm(p.name),c=>{let n=c.charCodeAt(0)-44032;return n>=0&&n<11172?'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'[Math.floor(n/588)]:c}).join('')}));
  function search(idx,text,limit=16){
    const q=norm(text);if(!q)return idx.slice(0,limit).map(x=>x.p);
@@ -57,13 +66,18 @@ const Game=(()=>{
    }
  }
  function odds(plan,n=400){let w=0;for(let i=0;i<n;i++)if(run(plan,Math.random,false).winner===0)w++;let a=Math.round(100*w/n);return [a,100-a]}
- function explain(r,pair,d){
+ function explain(r,pair,d,lang="ko"){
    const w=r.winner,l=1-w,all=r.events,top=all.filter(e=>e.i===w&&e.damage).sort((a,b)=>b.damage-a.damage)[0];
    const enemy=all.filter(e=>e.i===l),miss=enemy.find(e=>!e.hit),end=all.at(-1),weak=enemy.find(e=>e.factor<1);
+   if(lang==='en'){
+     const win=top?d.moves[top.move].en+(top.factor>1?' hit a weakness for '+top.factor+'× damage!':top.crit?' landed a critical hit!':' took away '+top.damage+' HP in one hit!'):'It held on while the other Pokémon lost energy using Struggle!';
+     const loss=!enemy.length?'The other Pokémon moved first and finished before this one could use a move.':end.i===l&&end.recoil?'Struggle used up some of its own HP.':miss?d.moves[miss.move].en+' missed, costing it a turn.':weak?d.moves[weak.move].en+' had only '+weak.factor+'× effect.':top&&top.attack>top.defense?'The winning move used a stronger attack stat than the defense it faced.':'The other Pokémon held on and '+d.moves[end.move].en+' decided the battle.';
+     return [win,loss]
+   }
    const win=top?`${d.moves[top.move].name} 기술이 ${top.factor>1?`약점을 찔러 ${top.factor}배 효과를 냈어`:top.crit?'급소에 맞았어':`체력을 한 번에 ${top.damage}만큼 줄였어`}!`:'상대가 몸부림을 쓰고 지칠 때까지 버텼어!';
    const loss=!enemy.length?(pair[w].stats[5]>pair[l].stats[5]?'상대 스피드가 더 빨랐고, ':'상대가 먼저 움직여서 ' )+'기술을 쓸 차례가 오지 않았어.':end.i===l&&end.recoil?'몸부림을 쓸 때마다 자기 체력도 줄었어.':miss?`${d.moves[miss.move].name} 기술이 빗나가서 그 차례를 놓쳤어.`:weak?`${d.moves[weak.move].name} 기술은 상대에게 ${weak.factor}배 효과만 냈어.`:top&&top.attack>top.defense?`상대의 ${d.moves[top.move].category===2?'공격이 내 방어':'특수공격이 내 특수방어'}보다 높아서 그 기술을 버티기 어려웠어.`:`기술을 ${enemy.filter(e=>e.hit).length}번 맞혔지만 상대가 버텼고, ${d.moves[end.move].name} 기술이 승부를 갈랐어.`;
    return [win,loss]
  }
- return {types,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,plan,run,odds,explain}
+ return {types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,plan,run,odds,explain}
 })();
 if(typeof module!=='undefined')module.exports=Game;else window.Game=Game;

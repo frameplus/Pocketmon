@@ -10,7 +10,7 @@ try{
   page.on('pageerror',e=>errors.push(e.message));await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto(url);await page.locator('#slot0 h2').waitFor();assert.equal(await page.locator('#slot0 h2').innerText(),'피카츄');
   const q=page.locator('#q0');await q.fill('C');assert.ok(await page.locator('#s0 button').count()>0);await q.fill('Charizard');await page.locator('#s0 button').first().click();await page.locator('#slot0 [data-form="10034"]').click();assert.equal(await page.locator('#slot0 h2').innerText(),'메가리자몽X');
-  await page.locator('#slot0 summary').click();assert.equal(await page.locator('#slot0 .stats span').count(),6);assert.ok(await page.locator('#slot0 .move').count()>=3);
+  assert.ok(await page.locator('#slot0 .stats').isVisible());assert.ok(await page.locator('#slot0 .move').first().isVisible());assert.equal(await page.locator('#slot0 .stats span').count(),6);assert.ok(await page.locator('#slot0 .move').count()>=3);
   await page.locator('#q1').fill('ㅍㅋㅊ');await page.locator('#s1 button').first().click();
   await page.waitForFunction(()=>[...document.querySelectorAll('#battle img')].every(i=>i.complete&&i.naturalWidth>0));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});assert.equal(await page.locator('#prediction').getAttribute('open'),null);await page.locator('#again').click();await page.locator('#result h2').waitFor({timeout:60000});
@@ -23,6 +23,16 @@ try{
   await page.evaluate(()=>{window.testMic.onerror({error:'not-allowed'});window.testMic.onend()});assert.match(await page.locator('#speech').innerText(),/허용/);
   await page.locator('#settings').click();await page.locator('#newpin').fill('1357');await page.locator('#setpin button').click();await page.waitForFunction(()=>document.querySelector('#pinmsg').textContent.includes('저장'));await page.locator('#close').click();await page.locator('#settings').click();await page.locator('#pin').fill('1357');await page.locator('#unlock button').click();await page.locator('#newpin').waitFor();await page.locator('#close').click();
   await page.locator('nav a[href="#battle"]').click();if(process.env.SCREENSHOTS){fs.mkdirSync('screenshots',{recursive:true});await page.screenshot({path:`screenshots/arena-${width}.png`,fullPage:true})}
+  await page.locator('#language').click();await page.waitForFunction(()=>document.documentElement.lang==='en'&&document.querySelector('#slot0 h2')?.textContent==='Terapagos');
+  assert.equal(await page.locator('#slot0 .region-tag').innerText(),'Paldea');assert.match(await page.locator('#slot0 .stats').innerText(),/Attack/);assert.ok(await page.locator('#slot0 .move').first().isVisible());
+  await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});assert.match(await page.locator('#result').innerText(),/wins!/);assert.doesNotMatch(await page.locator('#result').innerText(),/[가-힣]/);
+  await page.locator('nav a[href="#dex"]').click();await page.locator('#regionFilter').selectOption('kanto');await page.locator('#kindFilter').selectOption('mega');await page.locator('#typeFilter').selectOption('10');await page.locator('#powerOrder').click();
+  assert.equal(await page.locator('#catalog button').count(),2);assert.match(await page.locator('#catalog').innerText(),/Mega Charizard X/);
+  assert.equal(await page.locator('#catalog .place').nth(0).innerText(),await page.locator('#catalog .place').nth(1).innerText());
+  await page.locator('#kindFilter').selectOption('legendary');await page.locator('#typeFilter').selectOption('14');assert.match(await page.locator('#catalog').innerText(),/Mewtwo/);
+  await page.locator('#dexquery').fill('doesnotexist');assert.match(await page.locator('#catalog').innerText(),/No matches/);
+  await page.locator('nav a[href="#friend"]').click();await page.locator('#examples button').nth(1).click();await page.waitForFunction(()=>document.querySelector('#talk').innerText.includes('Water Gun'));
+  await page.waitForFunction(()=>/Visitors today · [0-9]/.test(document.getElementById('visits').textContent));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   assert.deepEqual(errors,[]);await page.close();console.log('PASS browser',width,height,'search/forms/stats/art/battle/replay/friend/history/PIN/mic events')
  }
 if(process.env.ARENA_URL||process.env.FRIEND_BINARY){const a=await fetch(url+'/api/friend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pair:[25,7],focus:25,lastIntent:'strength',text:'이 친구를 한 문장으로 설명해 줄래?'})});assert.equal(a.status,200);const reply=await a.json();assert.equal(reply.model,true,'self-hosted model processes an unscripted question');assert.match(reply.reply,/[가-힣]/);console.log('PASS live local Korean inference')}
