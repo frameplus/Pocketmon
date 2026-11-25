@@ -140,7 +140,7 @@ export function createStadium(field){
    if(portrait)pads[i].set((i?.13:-.20)*2*half*w/h,0,i?-1.05:4.1);
    marks[i].position.copy(pads[i]);
    const targetPixels=innerHeight*(.30+.041*size);
-   return portrait&&slots[i]?targetPixels*2*half/(h*slots[i].vertical):size;
+   return (portrait||innerHeight<=500)&&slots[i]?targetPixels*2*half/(h*slots[i].vertical):size;
   });
   camera.left=-half*w/h;camera.right=-camera.left;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();updateGround();
  }

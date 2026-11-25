@@ -106,12 +106,17 @@
     left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
    }
    // Keep a little space around moving ears and tails in animated GIFs.
-   const inset=right<left?'none':'inset('+[top,95-right,95-bottom,left].map(n=>Math.max(0,n-4)*100/96+'%').join(' ')+')';
-   const bounds=right>=left?[right-left+1,bottom-top+1]:[96,96];
-   spriteCrops.set(source,{inset,aspect:image.naturalWidth/image.naturalHeight*(bounds[0]+8)/(bounds[1]+8)});
+   const pad=[top,95-right,95-bottom,left].map(n=>Math.max(0,n-3));
+   const w=96-pad[1]-pad[3],h=96-pad[0]-pad[2];
+   const crop=right<left?{inset:'none',aspect:1,margin:1}:{
+    inset:'inset('+pad.map(n=>n*100/96+'%').join(' ')+')',
+    aspect:image.naturalWidth/image.naturalHeight*w/h,
+    margin:h/(bottom-top+1)
+   };
+   spriteCrops.set(source,crop);
   }
-  const {inset,aspect}=spriteCrops.get(source);image.style.objectViewBox=inset;
-  image.closest('.actor').style.setProperty('--aspect',String(aspect));
+  const {inset,aspect,margin}=spriteCrops.get(source),actor=image.closest('.actor');
+  image.style.objectViewBox=inset;actor.style.setProperty('--aspect',String(aspect));actor.style.setProperty('--margin',String(margin));
  },true);
  function actors(){
   const sizes=G.fieldSizes(pair);
