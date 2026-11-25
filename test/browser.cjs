@@ -9,6 +9,7 @@ try{
   const page=await browser.newPage({viewport:{width,height}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto(url);await page.locator('#slot0 h2').waitFor();assert.equal(await page.locator('#slot0 h2').innerText(),'피카츄');
+  assert.equal(await page.locator('#slot0 .card-hp').innerText(),'110');assert.equal(await page.locator('#hp0').innerText(),'110/110');assert.equal(await page.locator('#slot0 .stats span b').first().innerText(),'35');
   if(width<680){
     const brand=await page.locator('.brand').boundingBox(),lang=await page.locator('#language').boundingBox();
     assert.ok(brand.x+brand.width<=lang.x,'Brand stays on the left of language settings');
@@ -24,7 +25,7 @@ try{
   const prediction=page.locator('#prediction'),details=page.locator('#odds');
   for(let draw=0;draw<2;draw++){
     assert.equal(await prediction.getAttribute('open'),null);assert.ok(await details.isHidden());
-    await prediction.locator('summary').click();assert.ok(await details.isVisible());
+    await prediction.locator('summary').click();await details.waitFor();if(draw===0)await details.locator('.meter').waitFor({timeout:60000});
     await page.locator('#draw'+draw).click();
     assert.ok(await details.isHidden());
     const next=await currentCards();
@@ -44,6 +45,8 @@ try{
   await page.locator('#q1').fill('ㅍㅋㅊ');await page.locator('#s1 button').first().click();
   await page.waitForFunction(()=>[...document.querySelectorAll('#battle img')].every(i=>i.complete&&i.naturalWidth>0));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});assert.equal(await page.locator('#prediction').getAttribute('open'),null);await page.locator('#start').click();await page.locator('#result h2').waitFor({timeout:60000});
+  for(const i of [0,1])assert.equal(await page.locator('#slot'+i+' .card-hp').innerText(),await page.locator('#hp'+i).innerText());
+  assert.ok((await page.locator('#actors .hud small').allTextContents()).some(hp=>hp.startsWith('0/')));
   await page.locator('nav a[href="#history"]').click();await page.locator('#history .record').nth(1).waitFor();assert.equal(await page.locator('.record').count(),2);
   await page.locator('nav a[href="#dex"]').click();await page.locator('#dexquery').fill('Terapagos');await page.locator('#catalog button').first().click();await page.locator('#mine').click();assert.equal(await page.locator('#slot0 h2').innerText(),'테라파고스');
   await page.locator('nav a[href="#friend"]').click();await page.locator('#message').fill('꼬부기는 무슨 기술을 써?');await page.locator('#chat button[type=submit]').click();await page.waitForFunction(()=>document.querySelector('#talk').innerText.includes('물대포'));

@@ -1,5 +1,5 @@
 const G=require('./public/game.js');
-module.exports=function makeFriend(d){
+module.exports=function makeFriend(d,forecast){
  const idx=G.index(d),by=new Map(d.pokemon.map(p=>[p.id,p]));
  const rules=[['counter',/보다.*(강|세|쎄)|천적|이길.*(상대|친구)/],['moves',/기술|필살기/],['speed',/스피드|빠르|빨라/],['type',/속성|타입|약점/],['random',/랜덤|다른.*(보여|골라|포켓몬)/],['battle',/시작|다시.*(싸|배틀|대결)|붙여|싸워\s*(봐|줘)|누가.*(이|강|세)|싸우면|대결하면/],['strength',/왜.*(강|세|쎄)|특징|소개/],['greet',/^(안녕|반가워|고마워)[!. ]*$/]];
  const englishRules=[['counter',/who can (?:beat|defeat)|stronger than|counter to/i],['moves',/\bmoves?\b|attacks? (?:does|can)/i],['speed',/fast|speed|quicker/i],['type',/type|weakness|weak to/i],['random',/random|another pok[eé]mon|different pok[eé]mon/i],['battle',/battle|fight|rematch|who (?:wins|would win)|versus|\bvs\b/i],['strength',/strong|special about|tell me about/i],['greet',/^(hi|hello|thanks|thank you)[! .]*$/i]];
@@ -23,7 +23,7 @@ module.exports=function makeFriend(d){
    if(!intents.includes(kind))kind=named.length?'select':'other';
    const out={focus:p.id,intent:kind,model,action:null},best=p.stats.indexOf(Math.max(...p.stats)),move=d.moves[p.moves[0]];
    switch(kind){
-     case 'counter':{const scores=[6,9,94,130,150,248,282,384,445,483,635,717,888].map(i=>by.get(i)).filter(q=>q.id!==p.id).map(q=>[q,G.odds(G.plan([q,p],d),100)[0]]).sort((a,b)=>b[1]-a[1]);let [q,n]=scores[0];out.reply=en?`Try ${q.en}! It won ${n} out of 100 practice battles against ${p.en}. Want to try them together?`:`비교한 친구 중에는 ${q.name}이 있어! ${p.name}와 100번 연습 대결해서 ${n}번 이겼어. 둘을 붙여 볼까?`;out.suggest=[q.id,p.id];break}
+     case 'counter':{const scores=[];for(const id of [6,9,94,130,150,248,282,384,445,483,635,717,888]){if(id!==p.id)scores.push([by.get(id),(await forecast([id,p.id],100)).wins[0]])}scores.sort((a,b)=>b[1]-a[1]);let [q,n]=scores[0];out.reply=en?`Try ${q.en}! It won ${n} out of 100 practice battles against ${p.en}. Want to try them together?`:`비교한 친구 중에는 ${q.name}이 있어! ${p.name}와 100번 연습 대결해서 ${n}번 이겼어. 둘을 붙여 볼까?`;out.suggest=[q.id,p.id];break}
      case 'moves':out.reply=`${p.name}의 기술은 ${p.moves.map(i=>d.moves[i].name).join(', ')}야! ${move.name}은 ${G.types[move.type]} 기술이야.`;break;
      case 'type':{let weak=G.types.filter((v,t)=>t&&G.effect(t,p,d)>1);out.reply=`${p.name}의 속성은 ${p.types.map(t=>G.types[t]).join('·')}야. ${weak.length?weak.join(', ')+' 기술에 약해.':'약점이 적은 친구야!'}`;break}
      case 'speed':out.reply=`${p.name}의 스피드는 ${p.stats[5]}, ${op.name}의 스피드는 ${op.stats[5]}야. 같은 우선도의 기술이면 ${p.stats[5]===op.stats[5]?'추첨해서 먼저 움직여.':(p.stats[5]>op.stats[5]?p:op).name+'이 먼저 움직여!'}`;break;

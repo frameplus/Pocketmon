@@ -58,32 +58,46 @@ for r in rows("moves"):
     i=int(r["id"])
     if i in mn and int(r["type_id"])<=18:
         moves[i]=dict(name=mn[i],en=en_moves[i],type=int(r["type_id"]),power=int(r["power"] or 0),accuracy=int(r["accuracy"] or 100),category=int(r["damage_class_id"]),priority=int(r["priority"]),pp=int(r["pp"] or 1))
-learn=defaultdict(dict)
+# Use one turn-based game family per species; expansions share their base learnset.
+families=[(25,26,27),(20,21,22),(23,),(18,),(17,),(16,),(15,)]
+family={version:i for i,group in enumerate(families) for version in group}
+learn=defaultdict(lambda:defaultdict(dict))
 for r in rows("pokemon_moves"):
     i,m=int(r["pokemon_id"]),int(r["move_id"])
-    if i in dex and m in moves and r["pokemon_move_method_id"] in ["1","2","3","4"]:
-        learn[i][m]=max(learn[i].get(m,0),18*(r["pokemon_move_method_id"]=="1")+min(25,int(r["version_group_id"]))/5)
-signatures={25:[85,98,231],6:[53,403,337],7:[55,44,229],150:[540,94],643:[551,406]}
-used={165}
+    version=int(r["version_group_id"])
+    method=int(r["pokemon_move_method_id"])
+    if i not in dex or m not in moves or version not in family or method not in (1,2,3,4): continue
+    if method==1 and int(r["level"])>50: continue
+    pool=learn[i][family[version]]
+    pool[m]=max(pool.get(m,0),18 if method==1 else 0)
+signatures={25:[85,98,231],6:[53,403,337],7:[55,44,229],150:[540,94],643:[551,406],129:[33,175,150],132:[144],202:[68,243,219,194]}
+# These moves require unavailable equipment or allies, immediately end the match,
+# or have impractical prerequisites for a four-move single battle.
+exclude_attacks={12,32,90,120,138,153,206,329,387,515,562,668,690,775,798,802,809}
 for i,p in dex.items():
-    pool=learn[p["dex"]]|learn[i]
+    groups=learn[p["dex"]]
+    if not groups: raise ValueError(("no level-50 learnset",i,p["name"]))
+    game=min(groups)
+    pool=groups[game]
+    p["learnsetGroup"]=families[game][0]
     def score(m):
         a=moves[m]
-        return pool[m]+min(100,a["power"])*a["accuracy"]/100+25*(a["type"] in p["types"])+10*((a["category"]==2)==(p["stats"][1]>p["stats"][3]))
-    attacks=sorted((m for m in pool if moves[m]["power"] and m not in [120,153,515,802,206,12,32,90,329,138]),key=lambda m:(score(m),-m),reverse=True)
-    selected=[m for m in signatures.get(p["dex"],[]) if m in attacks]
+        power=min(105,a["power"])
+        if m in (76,63,416,19,91,143,200,264,340,566,338,307,308):power*=.55
+        return pool[m]+power*a["accuracy"]/100+25*(a["type"] in p["types"])+10*((a["category"]==2)==(p["stats"][1]>p["stats"][3]))
+    attacks=sorted((m for m in pool if moves[m]["power"] and m not in exclude_attacks),key=lambda m:(score(m),-m),reverse=True)
+    selected=[m for m in signatures.get(p["dex"],[]) if m in pool]
     for m in attacks:
         if len(selected)<4 and all(moves[v]["type"]!=moves[m]["type"] for v in selected):selected.append(m)
     selected=(selected+[m for m in attacks if m not in selected])[:4]
-    if len(selected)<3:selected += [m for m in sorted(pool) if moves[m]["category"]==1][:3-len(selected)]
+    if len(selected)<3:selected += [m for m in sorted(pool) if m not in selected][:3-len(selected)]
     p["moves"]=selected or [165]
-    used.update(p["moves"])
 chart=[[1]*18 for i in range(18)]
 for r in rows("type_efficacy"):
     a,b=int(r["damage_type_id"]),int(r["target_type_id"])
     if max(a,b)<=18: chart[a-1][b-1]=int(r["damage_factor"])/100
 assert len(dex)==1073 and all(all(p["stats"]) and p["types"] for p in dex.values())
-(out/"dex.json").write_text(json.dumps(dict(pokemon=list(dex.values()),moves={i:moves[i] for i in sorted(used)},chart=chart),ensure_ascii=False,separators=(",",":")))
+(out/"dex.json").write_text(json.dumps(dict(pokemon=list(dex.values()),moves=moves,chart=chart),ensure_ascii=False,separators=(",",":")))
 def art(i):
     fetch(f"https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/pokemon/other/official-artwork/{i}.png",out/"art"/f"{i}.png",b"\x89PNG\r\n\x1a\n")
 with ThreadPoolExecutor(max_workers=18) as workers: list(workers.map(art,dex))

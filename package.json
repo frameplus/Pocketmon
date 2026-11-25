@@ -1,1 +1,1 @@
-{"name":"pocketmon","version":"2.0.0","private":true,"scripts":{"start":"node server.js","test":"node --test test/unit.cjs"},"engines":{"node":">=22"}}
+{"name":"pocketmon","version":"2.0.0","private":true,"scripts":{"start":"node server.js","test":"node --test test/unit.cjs"},"engines":{"node":">=22"},"dependencies":{"@pkmn/sim":"0.11.0"}}
