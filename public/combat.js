@@ -12,7 +12,7 @@ function createCombat(field,world){
   active?.();active=null;label.hidden=true;points.hidden=true;canvas.hidden=true;
   delete field.dataset.technique;delete field.dataset.phase;
  }
- function play(e,m,{typeName,impact}){
+ function play(e,m,{typeName,impact,rate}){
   clear();
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const connects=e.damage>0,deflected=e.effect==='immune',miss=e.effect==='miss';
@@ -34,7 +34,7 @@ function createCombat(field,world){
   label.textContent=m.name;label.dataset.side=e.i;label.style.setProperty('--element',color);label.hidden=false;
   label.title=typeName;
   function animate(el,keyframes,options){
-   if(!reduced)motion.push(el.animate(keyframes,options));
+   if(!reduced){const anim=el.animate(keyframes,options);anim.playbackRate=rate();motion.push(anim)}
   }
   const travel=(style==='rush'||style==='slash')&&!deflected;
   const pose={i:e.i,connects,miss,travel,duration,style,color,t:0};world()?.move(pose);
@@ -120,7 +120,7 @@ function createCombat(field,world){
    active=done;
    function tick(time){
     // After a stalled frame or a backgrounded tab, keep the approach and impact visible.
-    elapsed+=Math.min(time-(previousTime??time),80);previousTime=time;
+    elapsed+=Math.min(time-(previousTime??time),80)*rate();previousTime=time;
     const t=clamp(elapsed/duration);
     pose.t=t;
     if(t>=arrival&&!landed){

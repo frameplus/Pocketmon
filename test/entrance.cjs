@@ -5,7 +5,7 @@ module.exports=async function testEntrance(browser,url){
   await page.addInitScript(()=>{localStorage.setItem('arena.mute','true');sessionStorage.setItem('arena.pair','[25,6]')});
   await page.goto(url);
   const field=page.locator('#battlefield'),start=page.locator('#start');
-  await field.waitFor();
+  await start.waitFor();
   for(const asset of ['bg-meadow','red','brendan']){
    assert.ok(await page.evaluate(async n=>{const img=new Image();img.src='/stage/'+n+'.png';await img.decode();return img.naturalWidth>0},asset));
   }
@@ -22,11 +22,11 @@ module.exports=async function testEntrance(browser,url){
   assert.deepEqual(stages.slice(0,3).map(s=>s.stage),['throw','release','battle']);
   assert.ok(stages[0].hidden&&stages[0].trainers);
   assert.equal(stages[1].hp,'110/110');assert.deepEqual(stages[1].src,['/art/25','/art/6']);
-  await start.click();await enter('throw');await page.locator('#draw0').click();await enter('ready');
+  await page.locator('#rematch').click();await enter('throw');await page.locator('#exit').click();await enter('ready');
   await page.waitForTimeout(2650);assert.equal(await field.getAttribute('data-scene'),'ready');assert.ok(await page.locator('#result').isHidden());
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.route('**/api/battle/*/*',r=>r.fulfill({status:503,body:'unavailable'}));
-  await start.click();await page.waitForFunction(()=>document.querySelector('#log').textContent.includes('연결'));await enter('ready');
+  await start.click();await page.waitForFunction(()=>document.querySelector('#speech').textContent.includes('연결'));await enter('ready');
   assert.ok(await start.isEnabled());await page.unroute('**/api/battle/*/*');
   await start.click();await enter('battle');assert.equal(await field.locator('.throw-rig:visible').count(),0);
   console.log('PASS textured stage assets, staggered Master Ball entrance, selected Pokémon, rematch, interrupted throw, failed request and reduced motion');

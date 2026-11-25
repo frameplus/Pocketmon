@@ -2,11 +2,11 @@ import * as T from 'three';
 import {GLTFLoader} from '/vendor/three/examples/jsm/loaders/GLTFLoader.js';
 import {DRACOLoader} from '/vendor/three/examples/jsm/loaders/DRACOLoader.js';
 
-const pads=[new T.Vector3(-2.05,0,.95),new T.Vector3(2.0,0,-.55)];
+const standardPads=[new T.Vector3(-2.05,0,.95),new T.Vector3(2.0,0,-.55)];
 const angles=[.39,-.55];
 const still=matchMedia('(prefers-reduced-motion: reduce)');
 const clamp=v=>Math.max(0,Math.min(1,v));
-function paintArena(scene){
+function paintArena(scene,marks){
  const meshes=new Map(),materials=new Map();
  const shapes={slab:new T.BoxGeometry(1,1,1),disc:new T.CylinderGeometry(1,1,1,64),stone:new T.DodecahedronGeometry(1,0),ring:new T.TorusGeometry(1,.018,6,72)};
  function put(shape,color,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0){
@@ -25,10 +25,13 @@ function paintArena(scene){
   put('slab',[0xc1cdbd,0xafc3b8,0xb5c9bf,0xc3d1c5][Math.abs(i*13+j*7)%4],x,.18,z,1.035,.045,.807);
  }
  const colors=[0x8861cc,0xe68c47];
- pads.forEach((p,i)=>{
-  put('disc',colors[i],p.x,.21,p.z,1.62,.045,1.62);
-  put('disc',i?0xf2ba80:0xb3a1e1,p.x,.24,p.z,1.47,.02,1.47);
-  ring(0xfff8e6,p.x,.257,p.z,1.32);
+ marks.forEach((mark,i)=>{
+  for(const [r,y,c] of [[1.62,.21,colors[i]],[1.47,.24,i?0xf2ba80:0xb3a1e1]]){
+   const tile=new T.Mesh(shapes.disc,new T.MeshStandardMaterial({color:c}));
+   tile.position.y=y;tile.scale.set(r,.025,r);tile.receiveShadow=true;mark.add(tile);
+  }
+  const border=new T.Mesh(shapes.ring,new T.MeshStandardMaterial({color:0xfff8e6}));
+  border.rotation.x=-Math.PI/2;border.position.y=.257;border.scale.setScalar(1.32);mark.add(border);scene.add(mark);
  });
  ring(0xf9f4dd,0,.22,0,.77);ring(0xa4b9ac,0,.218,0,.92);
  put('slab',0xfff9e2,0,.225,0,1.52,.012,.045);
@@ -98,7 +101,7 @@ function battleScale(model,yaw,camera){
    top=Math.max(top,y);bottom=Math.min(bottom,y);
   }
  });
- return 3.55/Math.max(right-left,top-bottom);
+ return {scale:3.55/Math.max(right-left,top-bottom),vertical:top-bottom};
 }
 function disposeModel(model){
  const textures=new Set(),materials=new Set(),geometries=new Set();
@@ -117,9 +120,10 @@ export function createStadium(field){
  scene.add(new T.HemisphereLight(0xfff6e4,0xb9ccdc,1.45));
  const sun=new T.DirectionalLight(0xfff3de,1.7);sun.position.set(-4,8,7);sun.castShadow=true;sun.shadow.mapSize.set(768,768);
  Object.assign(sun.shadow.camera,{left:-6,right:6,top:5,bottom:-5,near:.5,far:22});sun.shadow.normalBias=.025;sun.shadow.bias=-.00035;scene.add(sun);
- const rim=new T.DirectionalLight(0xe0eeff,.50);rim.position.set(5,4,-3);scene.add(rim);paintArena(scene);
+ const rim=new T.DirectionalLight(0xe0eeff,.50);rim.position.set(5,4,-3);scene.add(rim);
+ const pads=standardPads.map(p=>p.clone()),marks=pads.map(()=>new T.Group());paintArena(scene,marks);
  const loader=new GLTFLoader(),draco=new DRACOLoader();draco.setDecoderPath('/vendor/three/examples/jsm/libs/draco/gltf/');draco.setWorkerLimit(1);loader.setDRACOLoader(draco);
- let factors=[1,1];
+ let speciesSizes=[1,1],factors=[1,1];
  const slots=[null,null],ids=[0,0],requests=[null,null],jobs=[null,null],shadowMap=document.createElement('canvas');
  shadowMap.width=shadowMap.height=64;const cx=shadowMap.getContext('2d'),grad=cx.createRadialGradient(32,32,1,32,32,32);
  grad.addColorStop(0,'rgba(27,52,67,.48)');grad.addColorStop(.56,'rgba(27,52,67,.25)');grad.addColorStop(1,'rgba(27,52,67,0)');cx.fillStyle=grad;cx.fillRect(0,0,64,64);
@@ -130,7 +134,14 @@ export function createStadium(field){
  let visible=false,frame=0,last=0,phase='',release=0,action=null,winner=-1,finished=0,stopped=false;
  function resize(){
   const w=field.clientWidth,h=field.clientHeight;if(!w||!h)return;
-  renderer.setSize(w,h,false);const half=Math.max(2.6,4.85*h/w);
+  renderer.setSize(w,h,false);const portrait=w<h,half=portrait?3.55:Math.max(2.6,4.85*h/w);
+  factors=speciesSizes.map((size,i)=>{
+   pads[i].copy(standardPads[i]);
+   if(portrait)pads[i].set((i?.13:-.20)*2*half*w/h,0,i?-1.05:4.1);
+   marks[i].position.copy(pads[i]);
+   const targetPixels=innerHeight*(.30+.041*size);
+   return portrait&&slots[i]?targetPixels*2*half/(h*slots[i].vertical):size;
+  });
   camera.left=-half*w/h;camera.right=-camera.left;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();updateGround();
  }
  const sizeObserver=new ResizeObserver(resize);sizeObserver.observe(field);resize();
@@ -175,7 +186,7 @@ export function createStadium(field){
    });
    model.updateMatrixWorld(true);
    const box=new T.Box3().setFromObject(model,true),extent=box.getSize(new T.Vector3()),center=box.getCenter(new T.Vector3());
-   const scale=battleScale(model,angles[i],camera);
+   const {scale,vertical}=battleScale(model,angles[i],camera);
    if(!Number.isFinite(scale)||scale<=0){disposeModel(model);return}
    const ground=new T.Vector3(center.x,box.min.y,center.z);
    if(id===150){
@@ -197,9 +208,9 @@ export function createStadium(field){
     joints.push({bone,rest:bone.quaternion.clone(),axis:name.startsWith('tail')?'y':name==='head'?'x':'z',
      amplitude:name==='head' ? .045:name.startsWith('tail') ? .21 : .13,sign:name.startsWith('r')?-1:1});
    });
-   slots[i]={base,model,pivot,mixer,idle,attack,scale,height:extent.y*scale,id,joints};
+   slots[i]={base,model,pivot,mixer,idle,attack,scale,height:extent.y*scale,vertical:vertical*scale,id,joints};
    scene.add(base);base.position.copy(pads[i]);base.position.y=.27;base.rotation.y=angles[i];
-   field.dataset['mesh'+i]=String(id);wake();
+   field.dataset['mesh'+i]=String(id);resize();wake();
   }catch{
    // Keep the sprite visible and allow the next selection or battle to retry.
    if(requests[i]===control&&!control.signal.aborted)ids[i]=0;
@@ -207,7 +218,7 @@ export function createStadium(field){
  }
  function select(pair){
   winner=-1;if(stopped)return;
-  factors=window.Game.fieldSizes(pair);
+  speciesSizes=window.Game.fieldSizes(pair);resize();
   pair.forEach((p,i)=>{if(p.id!==ids[i])jobs[i]=selectOne(p.id,i)});
   return Promise.all(jobs);
  }

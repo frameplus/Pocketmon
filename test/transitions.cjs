@@ -8,13 +8,13 @@ module.exports=async function testTransitions(browser,url){
   await page.route('**/models/25.glb',route=>++attempts===1
    ?route.fulfill({status:503,body:'temporarily unavailable'}):route.continue());
   await page.goto(url);
-  await page.locator('#battlefield').scrollIntoViewIfNeeded();
+  
   await page.waitForFunction(()=>document.querySelector('#battlefield').dataset.mesh1==='6');
   await page.locator('#start').click();
   await page.locator('#celebration').waitFor({timeout:60000});
   const recovered=await page.locator('#battlefield').getAttribute('data-mesh0');
   const winningSide=Number(await page.locator('#celebration').getAttribute('data-side'));
-  await page.locator('nav a[href="#history"]').click();
+  await page.locator('#exit').click();await page.locator('nav a[href="#history"]').click();
   const history=await page.evaluate(()=>JSON.parse(localStorage.getItem('arena.history')||'[]'));
   const visibleRecords=await page.locator('#records .record').count();
 
@@ -52,14 +52,14 @@ module.exports=async function testTransitions(browser,url){
    }
   });
   await page.locator('nav a[href="#battle"]').click();
-  await page.locator('#slot1 .slotmic').click();
-  await page.locator('#q0').focus();
+  await page.locator('#slot1 .change').click();await page.locator('.slotmic').click();
+  await page.locator('#pickQuery').focus();
   await page.evaluate(()=>{
    const row=Object.assign([{transcript:'꼬부기'}],{isFinal:true});
    window.recording.onresult({results:[row]});
   });
-  await page.waitForFunction(()=>[...document.querySelectorAll('.pair h2')].some(h=>h.textContent==='꼬부기'));
-  assert.equal(await page.locator('#slot1 h2').innerText(),'꼬부기','use the card whose microphone received the name');
-  assert.equal(await page.locator('#slot0 h2').innerText(),'피카츄');
+  await page.waitForFunction(()=>[...document.querySelectorAll('.pair .poke-name')].some(h=>h.textContent==='꼬부기'));
+  assert.equal(await page.locator('#slot1 .poke-name').innerText(),'꼬부기','use the card whose microphone received the name');
+  assert.equal(await page.locator('#slot0 .poke-name').innerText(),'피카츄');
  }finally{await page.close()}
 };

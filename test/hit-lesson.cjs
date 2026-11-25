@@ -8,7 +8,7 @@ module.exports=async function testBattleAction(browser,url){
   const events=[strike(1,53,106,[4,153],10,[13],1),strike(0,85,80,[4,73],13,[10,3],2),{...strike(1,53,4,[0,73],10,[13],1),round:2}];
   await page.route('**/api/battle/25/6',r=>r.fulfill({json:{winner:1,initial:[110,153],events}}));
   await page.goto(url);const start=page.locator('#start'),field=page.locator('#battlefield');
-  await field.scrollIntoViewIfNeeded();
+  
   await page.waitForFunction(()=>document.querySelector('#battlefield').dataset.mesh0==='25'&&document.querySelector('#battlefield').dataset.mesh1==='6');
   // Inspect actual rendered objects through Three's scene callback, across consecutive ranged moves.
   await page.evaluate(async()=>{
@@ -43,9 +43,9 @@ module.exports=async function testBattleAction(browser,url){
   const peaks=await page.evaluate(()=>window.tilt.peak);
   assert.ok(peaks.every(v=>v>0&&v<=0.055001),'each move leans briefly by at most 3.2 degrees');
   await page.locator('#result h2').waitFor();
-  assert.match(await page.locator('#result').innerText(),/화염방사.*106[\s\S]*위력이 90/);
+  assert.match(await page.locator('#result').innerText(),/화염방사.*2번/);
   assert.equal(await page.locator('#hit-lesson,#continue-hit').count(),0);
-  await start.click();assert.ok(await page.locator('#celebration').isHidden());await phase('flame','windup');await page.locator('#draw0').click();
+  await page.locator('#rematch').click();assert.ok(await page.locator('#celebration').isHidden());await phase('flame','windup');await page.locator('#exit').click();
   assert.equal(await field.getAttribute('data-phase'),null);assert.ok(await field.locator('.hit-points').isHidden());
   console.log('PASS animated battle sprites, fire/lightning timings, impact HP, uninterrupted battle, result explanation, cancellation');
  }finally{await page.close()}
