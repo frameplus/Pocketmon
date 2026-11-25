@@ -76,7 +76,7 @@
  }
  function actors(){return pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}">${img(p)}<div class="hud"><div class="trainer-tag" id="trainer-tag${i}" ${trainers[i].trim()?'':'hidden'}>${esc(trainers[i].trim())}</div><div class="row"><span>${esc(p.name)}</span><small id="hp${i}">${G.hp(p)}/${G.hp(p)}</small></div><div class="track"><i id="bar${i}" style="width:100%"></i></div></div></div>`).join('')}
  function refresh(){
-  dismissLesson?.();narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
+  $('battlefield').dataset.scene='ready';dismissLesson?.();narrator.stop();epoch++;busy=false;try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}$('start').disabled=false;$('start').textContent=t('▶ 대결 시작',"▶ Start battle");$('result').hidden=true;$('prediction').open=false;
   slot(0);slot(1);$('odds').replaceChildren();forecastVersion=-1;
   $('actors').innerHTML=actors();$('round').textContent=t('준비 완료',"Ready");$('log').textContent=pair.map(x=>x.name).join(t(' 대 '," vs. "))+'!';$('fx').textContent='';$('fx').className='';
  }
@@ -120,14 +120,27 @@
   await Promise.race([dismissed,Promise.all([pause(3200),say(text)])]);
   if(dismissLesson===close)close();
  }
+ async function entrance(id){
+  const field=$('battlefield'),still=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  field.dataset.scene='throw';
+  $('round').textContent=t('트레이너 등장','Trainers enter');
+  $('log').textContent=t('트레이너들이 마스터볼을 던졌어!', 'The trainers throw their Master Balls!');
+  await pause(still?300:1170);
+  if(id!==epoch||field.dataset.scene!=='throw')return;
+  field.dataset.scene='release';
+  $('round').textContent=t('포켓몬 등장','Pokémon enter');
+  $('log').textContent=en?`Come on out, ${pair[0].name} and ${pair[1].name}!`:`${pair[0].name}, ${pair[1].name}! 나와라!`;
+  await pause(still?350:1350);
+  if(id===epoch&&field.dataset.scene==='release')field.dataset.scene='battle';
+ }
  async function battle(){
   if(busy)return;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('start').disabled=true;
   $('start').textContent=t('대결 중…','Battling…');$('result').hidden=true;$('prediction').open=false;
   $('actors').innerHTML=actors();updateHP(pair.map(G.hp),pair.map(G.hp));
   $('arena').scrollIntoView({block:'center',behavior:'smooth'});
   let result;
-  try{result=await matchRequest('battle','POST')}catch{
-   if(id===epoch){busy=false;$('start').disabled=false;$('start').textContent=t('▶ 대결 시작','▶ Start battle');$('log').textContent=t('연결을 확인하고 다시 시작해 줘.','Check the connection and try again.')}
+  try{[result]=await Promise.all([matchRequest('battle','POST'),entrance(id)])}catch{
+   if(id===epoch){$('battlefield').dataset.scene='ready';$('round').textContent=t('준비 완료','Ready');busy=false;$('start').disabled=false;$('start').textContent=t('▶ 대결 시작','▶ Start battle');$('log').textContent=t('연결을 확인하고 다시 시작해 줘.','Check the connection and try again.')}
    return
   }
   if(id!==epoch)return;
@@ -231,5 +244,5 @@
  $('catalog').onclick=e=>{const btn=e.target.closest('[data-card]');if(!btn)return;const p=by.get(+btn.dataset.card);openModal(card(p,t('전국도감',"National Dex"))+`<button id="mine">${t('내 카드로','Pick for me')}</button><button id="theirs">${t('상대 카드로','Pick as opponent')}</button>`);for(let [n,i] of [['mine',0],['theirs',1]])$(n).onclick=()=>{$('modal').close();choose(i,p);go('battle')}};
  $('chat').onsubmit=e=>{e.preventDefault();ask($('message').value)};$('examples').onclick=e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent)};
  document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=mic);document.querySelectorAll('header a[href^="#"]').forEach(a=>a.onclick=e=>{e.preventDefault();if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);go(a.hash.slice(1))});window.onhashchange=()=>go(location.hash.slice(1));document.addEventListener('click',e=>{if(!e.target.closest('.searchbox'))document.querySelectorAll('.suggest').forEach(x=>x.replaceChildren())});
- drawField($('land'));refresh();$('loading').hidden=true;go(location.hash.slice(1));bubble(t('안녕! 좋아하는 포켓몬 이름을 말해 줘.',"Hi! Tell me the name of your favorite Pokémon."),false);
+ buildField($('battlefield'));refresh();$('loading').hidden=true;go(location.hash.slice(1));bubble(t('안녕! 좋아하는 포켓몬 이름을 말해 줘.',"Hi! Tell me the name of your favorite Pokémon."),false);
 })().catch(()=>{document.getElementById('loading').textContent=Locale.t('도감을 열지 못했어. 새로고침해서 다시 만나자!','Could not open the Pokédex. Please refresh to try again.')});

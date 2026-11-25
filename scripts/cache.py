@@ -104,3 +104,10 @@ with ThreadPoolExecutor(max_workers=18) as workers: list(workers.map(art,dex))
 fetch("https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2",out/"pretendard.woff2",b"wOF2")
 fetch("https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/LICENSE",out/"font-license.txt")
 print("1025 species, 48 Mega forms and 1073 images cached")
+
+# Bundle the illustrated arena and throw poses with the existing local artwork.
+stage=out/"stage"
+client="https://raw.githubusercontent.com/smogon/pokemon-showdown-client/24c266052dbe037322c8b84a2d99b0085839e3bd/play.pokemonshowdown.com/fx/"
+trainers="https://raw.githubusercontent.com/pret/pokeemerald/8cf518839e529eeb2477905ede1df7213ac134b8/graphics/trainers/back_pics/"
+for url in [client+"bg-meadow.png",trainers+"red.png",trainers+"brendan.png"]:
+    fetch(url,stage/url.rsplit("/",1)[1],b"\x89PNG\r\n\x1a\n")
