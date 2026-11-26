@@ -21,31 +21,31 @@ module.exports=function makeFriend(d,forecast){
    if(!kind&&named.length&&[p.name,p.en].some(n=>G.norm(n)===G.norm(text)))kind='select';
    if(!kind&&enabled){try{kind=await interpret(text,input.lastIntent||'없음');model=true}catch{}}
    if(!intents.includes(kind))kind=named.length?'select':'other';
-   const out={focus:p.id,intent:kind,model,action:null},best=p.stats.indexOf(Math.max(...p.stats)),move=d.moves[p.moves[0]];
+   const out={focus:p.id,intent:kind,model,action:null},best=p.battleStats.indexOf(Math.max(...p.battleStats)),move=d.moves[p.moves[0]];
    switch(kind){
      case 'counter':{const scores=[];for(const id of [6,9,94,130,150,248,282,384,445,483,635,717,888]){if(id!==p.id)scores.push([by.get(id),(await forecast([id,p.id],100)).wins[0]])}scores.sort((a,b)=>b[1]-a[1]);let [q,n]=scores[0];out.reply=en?`Try ${q.en}! It won ${n} out of 100 practice battles against ${p.en}. Want to try them together?`:`비교한 친구 중에는 ${q.name}이 있어! ${p.name}와 100번 연습 대결해서 ${n}번 이겼어. 둘을 붙여 볼까?`;out.suggest=[q.id,p.id];break}
      case 'moves':out.reply=`${p.name}의 기술은 ${p.moves.map(i=>d.moves[i].name).join(', ')}야! ${move.name}은 ${G.types[move.type]} 기술이야.`;break;
      case 'type':{let weak=G.types.filter((v,t)=>t&&G.effect(t,p,d)>1);out.reply=`${p.name}의 속성은 ${p.types.map(t=>G.types[t]).join('·')}야. ${weak.length?weak.join(', ')+' 기술에 약해.':'약점이 적은 친구야!'}`;break}
-     case 'speed':out.reply=`${p.name}의 스피드는 ${p.stats[5]}, ${op.name}의 스피드는 ${op.stats[5]}야. 같은 우선도의 기술이면 ${p.stats[5]===op.stats[5]?'추첨해서 먼저 움직여.':(p.stats[5]>op.stats[5]?p:op).name+'이 먼저 움직여!'}`;break;
+     case 'speed':out.reply=`${p.name}의 레벨 50 스피드는 ${p.battleStats[5]}, ${op.name}의 스피드는 ${op.battleStats[5]}야. 같은 우선도의 기술이면 ${p.battleStats[5]===op.battleStats[5]?'추첨해서 먼저 움직여.':(p.battleStats[5]>op.battleStats[5]?p:op).name+'이 먼저 움직여!'}`;break;
      case 'battle':out.action={kind:'battle',ids:named.length?[p.id,op.id]:input.pair};out.reply=out.action.ids.map(id=>by.get(id).name).join(' 대 ')+'! 배틀 필드로 가자!';break;
      case 'random':out.action={kind:'random'};out.reply='새 친구 두 명을 골랐어! 카드에서 만나 봐.';break;
      case 'select':out.action={kind:'select',id:p.id};out.reply=p.name+' 카드를 골랐어!';break;
      case 'greet':out.reply='반가워! 오늘은 어떤 포켓몬과 놀아 볼까?';break;
      case 'other':out.reply='나는 포켓몬 이야기를 좋아해! 어떤 친구가 궁금해?';break;
-     default:out.reply=`${p.name}은 ${G.statNames[best]} 능력치가 ${p.stats[best]}로 가장 높아. ${move.name} 같은 기술도 쓸 수 있어. 누구랑 만나 볼까?`
+     default:out.reply=`${p.name}은 ${G.statNames[best]} 능력치가 ${p.battleStats[best]}로 가장 높아. ${move.name} 같은 기술도 쓸 수 있어. 누구랑 만나 볼까?`
    }
    if(en){
      switch(kind){
        case 'counter':break;
        case 'moves':out.reply=`${p.en} knows ${p.moves.map(id=>d.moves[id].en).join(', ')}. ${move.en} is a ${G.englishTypes[move.type]} move!`;break;
        case 'type':{const weak=G.englishTypes.filter((v,i)=>i&&G.effect(i,p,d)>1);out.reply=`${p.en} is ${p.types.map(i=>G.englishTypes[i]).join(' / ')} type. ${weak.length?'Watch out for '+weak.join(', ')+' moves!':'It has no type weaknesses here!'}`;break}
-       case 'speed':out.reply=`${p.en} has ${p.stats[5]} Speed, and ${op.en} has ${op.stats[5]}. With equal move priority, ${p.stats[5]===op.stats[5]?'either can move first':(p.stats[5]>op.stats[5]?p:op).en+' moves first'}.`;break;
+       case 'speed':out.reply=`${p.en} has ${p.battleStats[5]} Speed at level 50, and ${op.en} has ${op.battleStats[5]}. With equal move priority, ${p.battleStats[5]===op.battleStats[5]?'either can move first':(p.battleStats[5]>op.battleStats[5]?p:op).en+' moves first'}.`;break;
        case 'battle':out.reply=out.action.ids.map(id=>by.get(id).en).join(' vs. ')+'! Let’s battle!';break;
        case 'random':out.reply='I picked two new friends. Take a look!';break;
        case 'select':out.reply=`You picked ${p.en}!`;break;
        case 'greet':out.reply='Hi! Which Pokémon would you like to play with?';break;
        case 'other':out.reply='I love talking about Pokémon! Which one are you curious about?';break;
-       default:out.reply=`${p.en}’s highest stat is ${G.englishStats[best]} at ${p.stats[best]}. It can use ${move.en}. Who should we match it with?`
+       default:out.reply=`${p.en}’s highest stat is ${G.englishStats[best]} at ${p.battleStats[best]}. It can use ${move.en}. Who should we match it with?`
      }
    }
    if(model&&!out.action&&['strength','moves','speed','type'].includes(kind)){
