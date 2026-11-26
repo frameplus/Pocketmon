@@ -48,5 +48,29 @@ module.exports=async function testBattleAction(browser,url){
   await page.locator('#rematch').click();assert.ok(await page.locator('#celebration').isHidden());await phase('flame','windup');await page.locator('#exit').click();
   assert.equal(await field.getAttribute('data-phase'),null);assert.ok(await field.locator('.hit-points').isHidden());
   console.log('PASS animated battle sprites, fire/lightning timings, impact HP, uninterrupted battle, result explanation, cancellation');
+
+  // Without a 3D scene the ball and damage must still land on the sized sprite.
+  await page.route('**/stadium.js',r=>r.abort());
+  await page.reload();await start.click();
+  await page.waitForFunction(()=>document.querySelector('#battlefield').dataset.scene==='throw');
+  const offsets=await page.evaluate(()=>['near','far'].map((depth,i)=>{
+   const rig=document.querySelector('.throw-rig.'+depth);
+   const mark=rig.querySelector('.release-light').getBoundingClientRect();
+   const sprite=document.querySelector('#a'+i+' img').getBoundingClientRect();
+   return Math.hypot(mark.x+mark.width/2-sprite.x-sprite.width/2,mark.y+mark.height/2-sprite.y-sprite.height/2);
+  }));
+  assert.ok(offsets.every(px=>px<2),'each ball opens at the center of its own sprite');
+  await phase('flame','windup');
+  await page.locator('#speed').click();await phase('flame','recover');
+  assert.equal(await page.locator('#hp0').innerText(),'4/110');
+  await page.locator('#celebration').waitFor();
+  assert.equal(await page.locator('#a1 img').evaluate(el=>getComputedStyle(el).animationName),'winner-hop');
+  await page.locator('#result h2').waitFor();await page.locator('#rematch').click();
+  assert.equal(await page.locator('#speed').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('#hp0').innerText(),'110/110');
+  await phase('flame','windup');await page.locator('#skip').click();
+  await page.locator('#result h2').waitFor();assert.equal(await field.getAttribute('data-phase'),null);
+  assert.equal(await page.locator('#hp0').innerText(),'0/110');
+  console.log('PASS fallback release alignment, mid-attack speed change, recovery, victory, rematch reset and skip');
  }finally{await page.close()}
 };

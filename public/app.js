@@ -122,6 +122,7 @@
  },true);
  function actors(){
   const sizes=G.fieldSizes(pair);
+  sizes.forEach((size,i)=>$('battlefield').style.setProperty(i?'--far-size':'--near-size',size));
   $('actors').innerHTML=pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}" style="--fighter-size:${sizes[i]}">${fighter(p,i)}</div>`).join('');
   $('scoreboard').innerHTML=pair.map((p,i)=>`<div class="hud"><div class="trainer-tag">${esc(trainers[i])}</div><b>${esc(p.name)}</b><span id="hp${i}">${G.hp(p)}/${G.hp(p)}</span><div class="track"><i id="bar${i}" style="width:100%"></i></div></div>`).join('');
  }
@@ -156,7 +157,7 @@
   const timers=new Set();
   return {
    get rate(){return rate},get stopped(){return stopped},
-   toggle(){rate=rate===1?2:1;for(const anim of $('battlefield').getAnimations({subtree:true}))anim.updatePlaybackRate(rate);return rate},
+   toggle(){rate=rate===1?2:1;for(const anim of $('battlefield').getAnimations({subtree:true}))if(anim instanceof CSSAnimation)anim.updatePlaybackRate(rate);return rate},
    stop(){stopped=true;for(const finish of [...timers])finish()},
    wait(ms){
     if(stopped)return Promise.resolve();
@@ -170,7 +171,7 @@
   };
  }
  $('battlefield').addEventListener('animationstart',e=>{
-  if(busy&&playback?.rate===2)for(const anim of e.target.getAnimations())anim.updatePlaybackRate(2);
+  if(busy&&playback?.rate===2)for(const anim of e.target.getAnimations())if(anim instanceof CSSAnimation)anim.updatePlaybackRate(2);
  });
  $('speed').onclick=()=>{if(busy){const rate=playback.toggle();$('speed').setAttribute('aria-pressed',String(rate===2));stadium?.setRate(rate)}};
  $('skip').onclick=()=>{if(busy){playback.stop();combat.clear()}};

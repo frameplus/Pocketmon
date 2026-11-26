@@ -24,8 +24,12 @@ function createCombat(field,world){
   canvas.width=Math.round(fieldRect.width*dpr);canvas.height=Math.round(fieldRect.height*dpr);
   const imgs=[e.i,e.j].map(i=>document.querySelector('#a'+i+' img'));
   const anchors=field.dataset.world==='on'?world()?.anchors():null;
-  const src=anchors?[anchors[e.i][0]*width,anchors[e.i][1]*height]:[e.i?width*.69:width*.33,e.i?height*.39:height*.59];
-  const dest=anchors?[anchors[e.j][0]*width,anchors[e.j][1]*height]:[e.j?width*.72:width*.30,e.j?height*.405:height*.59];
+  const [src,dest]=[e.i,e.j].map((side,k)=>{
+   if(anchors&&field.dataset['mesh'+side])return [anchors[side][0]*width,anchors[side][1]*height];
+   const box=imgs[k].getBoundingClientRect();
+   return [(box.left+box.width*.5-fieldRect.left)*width/fieldRect.width,
+    (box.bottom-box.height*.5-fieldRect.top)*height/fieldRect.height];
+  });
   if(miss){dest[0]+=e.i?-65:65;dest[1]-=height*.14}
   const dx=dest[0]-src[0],dy=dest[1]-src[1],dist=Math.hypot(dx,dy);
   const direction=Math.sign(dx),motion=[],duration=reduced?460:style==='rush'||style==='slash'?900:1040;
@@ -33,8 +37,11 @@ function createCombat(field,world){
   field.dataset.technique=style;field.dataset.phase='windup';canvas.hidden=false;
   label.textContent=m.name;label.dataset.side=e.i;label.style.setProperty('--element',color);label.hidden=false;
   label.title=typeName;
-  function animate(el,keyframes,options){
-   if(!reduced){const anim=el.animate(keyframes,options);anim.playbackRate=rate();motion.push(anim)}
+  function animate(el,keyframes,options,start=0){
+   if(!reduced){
+    const anim=el.animate(keyframes,{fill:'both',...options});
+    anim.pause();anim.currentTime=0;motion.push({anim,start});
+   }
   }
   const travel=(style==='rush'||style==='slash')&&!deflected;
   const pose={i:e.i,connects,miss,travel,duration,style,color,t:0};world()?.move(pose);
@@ -43,8 +50,8 @@ function createCombat(field,world){
   animate(imgs[0],[
    {translate:'0 0',offset:0},{translate:windup+'px 3px',scale:'.96 1.03',offset:.2},
    {translate:travel?(pixelX*.81)+'px '+(pixelY*.8)+'px':direction*9+'px -3px',scale:travel?(e.i?'1.12':'.9'):'1.03',offset:.51},
-   {translate:'0 0',scale:'1',offset:.95},{translate:'0 0',offset:1}
-  ],{duration,easing:'ease-in-out'});
+   {translate:'0 0',scale:'1',offset:.94},{translate:'0 0',scale:'1',offset:1}
+  ],{duration});
   const stroke=(pts,ink,size)=>{
    ctx.strokeStyle=ink;ctx.lineWidth=size;ctx.lineJoin='round';ctx.lineCap='round';
    ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();
@@ -114,7 +121,7 @@ function createCombat(field,world){
   return new Promise(resolve=>{
    let frame=0,landed=false,previousTime,elapsed=0;
    function done(){
-    world()?.move(null);cancelAnimationFrame(frame);motion.forEach(a=>a.cancel());label.hidden=true;points.hidden=true;canvas.hidden=true;
+    world()?.move(null);cancelAnimationFrame(frame);motion.forEach(({anim})=>anim.cancel());label.hidden=true;points.hidden=true;canvas.hidden=true;
     delete field.dataset.phase;delete field.dataset.technique;active=null;resolve();
    }
    active=done;
@@ -128,12 +135,14 @@ function createCombat(field,world){
      if(connects){
       if(e.crit||e.damage*2>=e.max[e.j])animate(field.querySelector('.meadow'),[
        {transform:'scale(1)'},{transform:'scale(1.027) translateX('+direction*-2+'px)',offset:.30},{transform:'scale(1)'}
-      ],{duration:310});
+      ],{duration:310},elapsed);
       points.textContent='−'+e.damage;points.style.left=(dest[0]/width*100)+'%';points.style.top=(dest[1]/height*100-8)+'%';points.hidden=false;
-      animate(points,[{opacity:0,translate:'0 4px',scale:'.8'},{opacity:1,translate:'0 0',scale:'1.08',offset:.2},{opacity:1,translate:'0 -6px',offset:.65},{opacity:0,translate:'0 -18px'}],{duration:duration*(1-arrival),fill:'both'});
-      animate(imgs[1],[{translate:'0 0'},{translate:direction*10+'px -4px',filter:'brightness(1.25)',offset:.25},{translate:'0 0'}],{duration:280});
-     }else if(miss)animate(imgs[1],[{translate:'0 0'},{translate:'0 -12px'},{translate:'0 0'}],{duration:250});
+      animate(points,[{opacity:0,translate:'0 4px',scale:'.8'},{opacity:1,translate:'0 0',scale:'1.08',offset:.2},{opacity:1,translate:'0 -6px',offset:.65},{opacity:0,translate:'0 -18px'}],{duration:duration*(1-arrival)},elapsed);
+      animate(imgs[1],[{translate:'0 0'},{translate:direction*10+'px -4px',filter:'brightness(1.25)',offset:.25},{translate:'0 0'}],{duration:280},elapsed);
+     }else if(miss)animate(imgs[1],[{translate:'0 0'},{translate:'0 -12px'},{translate:'0 0'}],{duration:250},elapsed);
     }
+    if(landed&&t>=.72)field.dataset.phase='recover';
+    for(const {anim,start} of motion)anim.currentTime=elapsed-start;
     draw(t);if(t===1)done();else frame=requestAnimationFrame(tick);
    }
    frame=requestAnimationFrame(tick);

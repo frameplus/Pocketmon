@@ -131,7 +131,7 @@ export function createStadium(field){
  const sideAxis=new T.Vector3(1,0,0),forwardAxis=new T.Vector3(0,0,1);
  const shadows=pads.map(p=>{const s=new T.Mesh(new T.PlaneGeometry(2.6,2),new T.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false}));
   s.rotation.x=-Math.PI/2;s.position.set(p.x,.269,p.z);scene.add(s);return s});
- let visible=false,frame=0,last=0,phase='',release=0,action=null,winner=-1,finished=0,stopped=false;
+ let visible=false,frame=0,last=0,phase='',releaseImages=[],action=null,attackClip=null,winner=-1,victoryTime=0,stopped=false;
  function resize(){
   const w=field.clientWidth,h=field.clientHeight;if(!w||!h)return;
   renderer.setSize(w,h,false);
@@ -145,6 +145,7 @@ export function createStadium(field){
  }
  function updateGround(){
   pads.forEach((p,i)=>{const v=projected(new T.Vector3(p.x,.26,p.z));field.style.setProperty(i?'--far-x':'--near-x',(v[0]*100)+'%');field.style.setProperty(i?'--far-feet':'--near-feet',(v[1]*100)+'%')});
+  anchors().forEach((p,i)=>field.style.setProperty(i?'--far-release':'--near-release',(p[1]*100)+'%'));
  }
  function detach(i){
   const s=slots[i];delete field.dataset['mesh'+i];if(!s)return;
@@ -213,6 +214,7 @@ export function createStadium(field){
  function select(pair){
   winner=-1;if(stopped)return;
   factors=window.Game.fieldSizes(pair);
+  updateGround();
   pair.forEach((p,i)=>{if(p.id!==ids[i])jobs[i]=selectOne(p.id,i)});
   return Promise.all(jobs);
  }
@@ -244,24 +246,39 @@ export function createStadium(field){
    s.rotation.set(t*8,k+t*3,angle);s.scale.setScalar(1.05-impact);
   });
  }
- function move(a){action=a;if(a)sparkMat.color.set(a.color);if(a)winner=-1;if(!a)return;const s=slots[a.i];if(!still.matches&&s?.attack){
-  const clip=s.mixer.clipAction(s.attack);clip.reset().setLoop(T.LoopOnce,1);clip.setDuration(a.duration/1000);clip.play();
- }}
+ function move(a){
+  attackClip?.stop();attackClip=null;action=a;if(!a)return;
+  sparkMat.color.set(a.color);winner=-1;const s=slots[a.i];
+  if(!still.matches&&s?.attack){
+   attackClip=s.mixer.clipAction(s.attack).reset().setLoop(T.LoopOnce,1);
+   attackClip.paused=true;attackClip.play();
+  }
+ }
  function render(time){
   frame=0;if(stopped||!visible||document.hidden)return;
   if(last&&time-last<(still.matches?80:26)){frame=requestAnimationFrame(render);return}
   const dt=Math.min((time-(last||time))/1000,.075);last=time;
-  const next=field.dataset.scene;if(next!==phase){phase=next;if(next==='release'){release=time;winner=-1}if(next==='throw')winner=-1}
+  const next=field.dataset.scene;if(next!==phase){
+   phase=next;if(next==='release')releaseImages=[...field.querySelectorAll('.actor img')];
+   if(next==='release'||next==='throw')winner=-1;
+  }
+  if(winner>=0)victoryTime+=dt*rate;
   slots.forEach((s,i)=>{
    if(!s){shadows[i].visible=false;return}
    const from=pads[i],other=pads[1-i];s.base.position.copy(from);s.base.position.y=.275;
    // Pose each frame from the standing position, including after an interrupted move.
    s.base.rotation.set(0,angles[i],0);
-   const size=phase==='release'&&!still.matches?clamp((time-release-90)/440):1;
-   s.base.visible=phase!=='throw'&&size>.01;shadows[i].visible=s.base.visible;
+   // Use the same release animation as the fallback, including its side delay and live playback rate.
+   const size=phase==='release'&&!still.matches?(parseFloat(getComputedStyle(releaseImages[i]).scale)||1):1;
+   s.base.visible=phase!=='throw'&&size>.061;shadows[i].visible=s.base.visible;
+   if(phase==='release')s.base.position.y+=(1-size)*s.height*factors[i]*.57;
    s.base.scale.setScalar(Math.max(.001,size)*factors[i]);
    shadows[i].scale.setScalar(factors[i]);
    if(!still.matches){
+    if(action?.i===i&&attackClip){
+     attackClip.time=action.t*s.attack.duration;
+     attackClip.setEffectiveWeight(clamp((1-action.t)/.23));
+    }
     s.mixer.update(dt*rate);
     const beat=time*.0043+i*2.2,step=(1-Math.cos(beat))*.5;
     s.base.position.y+=step*(s.idle ? .025 : .09);
@@ -294,8 +311,8 @@ export function createStadium(field){
     }
    }
    if(i===winner){
-    const t=still.matches?1:clamp((time-finished)/720);
-    s.base.rotation.y=T.MathUtils.lerp(angles[i],i?-.1:.13,t);s.base.position.y+=Math.abs(Math.sin(Math.PI*2*t))*(1-t)*.52;
+    const t=still.matches?1:clamp(victoryTime/.72);
+    s.base.rotation.y=T.MathUtils.lerp(s.base.rotation.y,i?-.1:.13,t);s.base.position.y+=Math.sin(Math.PI*t)*.35;
    }
    shadows[i].position.x=s.base.position.x;shadows[i].position.z=s.base.position.z;
   });
@@ -306,5 +323,5 @@ export function createStadium(field){
  document.addEventListener('visibilitychange',wake);
  field.dataset.world='on';
  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();stopped=true;cancelAnimationFrame(frame);delete field.dataset.world;delete field.dataset.mesh0;delete field.dataset.mesh1;observer.disconnect();sizeObserver.disconnect();requests.forEach(c=>c?.abort());document.removeEventListener('visibilitychange',wake)});
- return {select,move,anchors,setRate(value){rate=value},finish(side){winner=side;finished=performance.now();wake()}};
+ return {select,move,anchors,setRate(value){rate=value},finish(side){winner=side;victoryTime=0;wake()}};
 }
