@@ -23,8 +23,10 @@
 #battlefield .hud .track { height:6px; }
 .entrance-props { pointer-events:none; }
 .throw-rig { display:none; position:absolute; inset:0; pointer-events:none; }
-.throw-rig.near { z-index:4; --origin-x:10%; --origin-y:68%; --apex-x:19%; --apex-y:29%; --mark-x:var(--near-x); --mark-y:62%; --ball:8cqw; --pose:30cqw; --delay:0s; }
-.throw-rig.far { z-index:2; --origin-x:91%; --origin-y:44%; --apex-x:84%; --apex-y:24%; --mark-x:var(--far-x); --mark-y:42%; --ball:6cqw; --pose:19cqw; --delay:.12s; }
+.throw-rig.near { z-index:4; --origin-x:10%; --origin-y:68%; --apex-x:19%; --apex-y:29%; --mark-x:var(--near-x); --mark-y:calc(var(--near-feet) - 18.3cqw * var(--near-size,1)); --ball:8cqw; --pose:30cqw; --delay:0s; }
+.throw-rig.far { z-index:2; --origin-x:91%; --origin-y:44%; --apex-x:84%; --apex-y:24%; --mark-x:var(--far-x); --mark-y:calc(var(--far-feet) - 18.3cqw * var(--far-size,1)); --ball:6cqw; --pose:19cqw; --delay:.12s; }
+#battlefield[data-world="on"][data-mesh0] .throw-rig.near { --mark-y:var(--near-release); }
+#battlefield[data-world="on"][data-mesh1] .throw-rig.far { --mark-y:var(--far-release); }
 #battlefield:is([data-scene="throw"],[data-scene="release"]) .throw-rig { display:block; }
 .thrower { position:absolute; width:var(--pose); height:var(--pose); background-repeat:no-repeat; background-position:center top; image-rendering:pixelated; }
 .near .thrower { left:-3%; bottom:14%; background-image:url('/stage/red.png'); background-size:100% 500%; }
@@ -62,9 +64,9 @@
 [data-scene="release"] .release-light { animation:release-ring .69s ease-out var(--delay) both; }
 @keyframes release-ring { 0%{opacity:0;scale:.25} 32%{opacity:.96} 100%{opacity:0;scale:1.28} }
 [data-scene="throw"] .actor img,[data-scene="throw"] .actor::before { opacity:0; }
-#battlefield[data-scene="release"] .actor img { animation:appear .83s cubic-bezier(.15,.72,.28,1.14) .13s both; }
+#battlefield[data-scene="release"] .actor img { transform-origin:center; animation:appear .83s ease-out .13s both; }
 #battlefield[data-scene="release"] .right img { animation-delay:.25s; }
-@keyframes appear { from{opacity:0;scale:.14;translate:0 4%;filter:brightness(1.7)} 68%{opacity:1;scale:1.06} to{opacity:1;scale:1} }
+@keyframes appear { from{opacity:0;scale:.06;filter:brightness(1.7)} 68%{opacity:1;scale:1.04} to{opacity:1;scale:1} }
 [data-scene="throw"] .meadow { animation:field-pan 1.17s ease-out both; }
 @keyframes field-pan { from{transform:scale(1.05) translateX(-1%)} to{transform:scale(1)} }
 #battlefield[data-scene="battle"] .actor:not(.strike):not(.hit) img { animation:field-breathe 2.4s ease-in-out infinite alternate; }
@@ -114,4 +116,7 @@
 @media(prefers-reduced-motion:no-preference) {
   .victory-ribbon { animation:win-ribbon .46s cubic-bezier(.18,.9,.28,1.14) both; }
   @keyframes win-ribbon { from{opacity:0;transform:translateY(-30%) scale(.68)} to{opacity:1;transform:none} }
+  #battlefield:has(#celebration[data-side="0"]:not([hidden])) #a0 img,
+  #battlefield:has(#celebration[data-side="1"]:not([hidden])) #a1 img { animation:winner-hop .72s ease-in-out both; }
+  @keyframes winner-hop { 0%,100%{translate:0 0} 38%{translate:0 -12%} 75%{translate:0 -2%} }
 }
