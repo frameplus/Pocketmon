@@ -3,13 +3,17 @@
  const $=id=>document.getElementById(id),G=window.Game,{en,lang,t,region,types,stats}=Locale,esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const d=await fetch('/dex.json').then(r=>{if(!r.ok)throw Error();return r.json()}),idx=G.index(d),by=new Map(d.pokemon.map(p=>[p.id,p]));
  const ranks=G.powerRanks(d.pokemon);
+ const teamReplay=window.parent!==window&&new URLSearchParams(location.search).has('teamReplay');
+ document.querySelector('.team-entry').href='/teams.html?lang='+lang;
+ let teamRound=0;
+ const tellTeam=kind=>window.parent.postMessage({kind,round:teamRound},location.origin);
  if(en){for(const p of d.pokemon)p.name=p.en;for(const m of Object.values(d.moves))m.name=m.en}
  const get=(k,def)=>{try{return JSON.parse(localStorage.getItem('arena.'+k))??def}catch{return def}};
  const put=(k,v)=>{try{localStorage.setItem('arena.'+k,JSON.stringify(v))}catch{}};
  let savedPair;try{savedPair=JSON.parse(sessionStorage.getItem('arena.pair'))}catch{}
  let pair=Array.isArray(savedPair)&&savedPair.length===2&&savedPair.every(id=>by.has(id))?savedPair.map(id=>by.get(id)):[by.get(25),by.get(6)],epoch=0,busy=false,activePage='',target=0,pageSize=36,noticeTimer,rec=null,voiceEpoch=0,focus=25,lastIntent='',suggested=null,questionEpoch=0;
  let mute=get('mute',false),history=get('history',[]);if(!Array.isArray(history))history=[];
- const savedTrainers=get('trainers',[]);
+ const savedTrainers=teamReplay?[t('파랑 팀','Blue team'),t('빨강 팀','Red team')]:get('trainers',[]);
  const trainers=[0,1].map(i=>typeof savedTrainers?.[i]==='string'?savedTrainers[i].slice(0,24):'');
  let powerOrder=false;
  const badges=p=>p.types.map(t=>`<span class="badge" data-type-id="${t}" style="--element:${G.colors[t]}"><i aria-hidden="true">${G.icons[t]}</i>${types[t]}</span>`).join('');
@@ -142,7 +146,7 @@
   questionEpoch++;suggested=null;if(rec)cancelVoice();
   epoch++;playback?.stop();combat.clear();narrator.stop();busy=false;
   $('celebration').hidden=true;$('battlefield').dataset.scene='ready';
-  try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}
+  try{if(!teamReplay)sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}
   $('start').disabled=false;slot(0);slot(1);actors();phase('chooser');
   $('comparison').innerHTML=ArenaUI.comparison(pair,d,esc);
   stadium?.select(pair);
@@ -183,7 +187,7 @@
  });
  $('speed').onclick=()=>{if(busy){const rate=playback.toggle();$('speed').setAttribute('aria-pressed',String(rate===2));stadium?.setRate(rate)}};
  $('skip').onclick=()=>{if(busy){playback.stop();combat.clear()}};
- $('exit').onclick=()=>{refresh();$('start').focus({preventScroll:true})};
+ $('exit').onclick=()=>{refresh();if(teamReplay)tellTeam('team-exit');else $('start').focus({preventScroll:true})};
  async function entrance(id){
   const field=$('battlefield'),still=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   field.dataset.scene='throw';
@@ -197,7 +201,7 @@
   await playback.wait(still?350:1350);
   if(id===epoch&&field.dataset.scene==='release')field.dataset.scene='battle';
  }
- async function battle(){
+ async function battle(recordedResult){
   if(busy)return;questionEpoch++;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'),true);const id=++epoch;busy=true;$('celebration').hidden=true;$('start').disabled=true;
   phase('arena');$('exit').focus({preventScroll:true});
   $('battleJournal').replaceChildren();ArenaUI.progress(0);
@@ -205,7 +209,7 @@
   playback=playbackClock();stadium?.setRate(1);$('speed').setAttribute('aria-pressed','false');
   actors();updateHP(pair.map(G.hp),pair.map(G.hp));
   let result;
-  try{[result]=await Promise.all([matchRequest('battle','POST'),entrance(id),
+  try{[result]=await Promise.all([teamReplay?recordedResult:matchRequest('battle','POST'),entrance(id),
    Promise.race([initWorld().then(world=>world?.select(pair)),playback.wait(4200)])])}catch{
    if(id===epoch){refresh();notify(t('연결을 확인하고 다시 시작해 줘.','Check the connection and try again.'))}
    return
@@ -236,7 +240,7 @@
   stadium?.finish(result.winner);
   ArenaUI.progress(0,true);
   const w=result.winner,why=roundReason(result);
-  history=[{ids:pair.map(p=>p.id),w,time:Date.now(),round:last?.round},...history].slice(0,24);put('history',history);
+  if(!teamReplay){history=[{ids:pair.map(p=>p.id),w,time:Date.now(),round:last?.round},...history].slice(0,24);put('history',history)}
   const banner=$('celebration');
   banner.dataset.side=w<0?'tie':String(w);
   $('victory-word').textContent=w<0?'DRAW!':'VICTORY!';
@@ -245,6 +249,7 @@
   $('round').textContent=t('승부가 났어!','Match decided!');
   if(w>=0&&!mute&&!rec)narrator.victorySound();
   await playback.wait(2100);if(id!==epoch)return;
+  if(teamReplay){busy=false;narrator.stop();tellTeam('team-round-end');return}
   const v=pair[w],title=v?v.name+t(' 승리!',' wins!'):t('무승부!','A tie!');
   const reading=(!en&&v?v.name+'의 승리야!':title)+' '+why;
   const koHit=w>=0&&events.findLast(e=>e.kind==='move'&&e.i===w&&e.damage>0&&e.hp[1-w]===0);
@@ -403,4 +408,12 @@
  }).catch(()=>{view.dataset.world='fallback'});
  if('requestIdleCallback' in window)requestIdleCallback(initWorld,{timeout:1000});else setTimeout(initWorld,0);
  refresh();$('loading').hidden=true;go(location.hash.slice(1));bubble(t('안녕! 좋아하는 포켓몬 이름을 말해 줘.',"Hi! Tell me the name of your favorite Pokémon."),false);
+ if(teamReplay){
+  window.addEventListener('message',e=>{
+   if(e.origin!==location.origin||e.source!==window.parent||e.data?.kind!=='team-round')return;
+   teamRound=e.data.round;
+   usePair(e.data.ids);battle(e.data.result).catch(()=>tellTeam('team-exit'));
+  });
+  tellTeam('team-ready');
+ }
 })().catch(()=>{document.getElementById('loading').textContent=Locale.t('도감을 열지 못했어. 새로고침해서 다시 만나자!','Could not open the Pokédex. Please refresh to try again.')});

@@ -20,7 +20,7 @@ COPY --from=model /model/build/bin /model/bin
 COPY --from=model /model/friend.gguf /model/friend.gguf
 COPY --from=assets /build/public/ public/
 COPY public/ public/
-COPY index.html server.js friend.js visitors.js models.js model-index.js narration.js simulator.js forecasts.js package.json ./
+COPY index.html server.js team-battles.js friend.js visitors.js models.js model-index.js narration.js simulator.js forecasts.js package.json ./
 COPY scripts/cache-cards.cjs scripts/cache-cards.cjs
 RUN node scripts/cache-cards.cjs
 ENV FRIEND_BINARY=/model/bin/llama-server FRIEND_MODEL=/model/friend.gguf
