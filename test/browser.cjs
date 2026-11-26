@@ -27,7 +27,8 @@ try{
    assert.ok(await slot(i).locator('.badge').count()>0);assert.ok(await slot(i).locator('.move').count()>=3);
    const card=await slot(i).locator('.card').boundingBox(),input=await slot(i).locator('.pick-query').boundingBox(),draw=await slot(i).locator('.draw').boundingBox();
    assert.ok(input.y>=card.y+card.height-1&&draw.y>=input.y-1);
-   assert.ok(draw.y+draw.height<=(await el('.launch').boundingBox()).y,'direct draw is visible on first screen');
+   assert.ok(draw.y+draw.height<=height);
+   assert.ok(await slot(i).locator('.draw').evaluate(b=>{const r=b.getBoundingClientRect();return b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'draw button is reachable without scrolling');
   }
   await shot('choose');
   await el('#start').click();
