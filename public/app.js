@@ -71,7 +71,7 @@
   const p=pair[i],el=$('slot'+i),label=sideName(i);
   el.innerHTML=card(p,trainers[i].trim()||label,true,i)+`
    <div class="inline-pick"><div class="find-row">
-    <input class="pick-query" type="search" autocomplete="off" aria-label="${label} ${t('이름 검색','name search')}" placeholder="${t('이름 검색','Search name')}">
+    <input class="pick-query" type="search" autocomplete="off" aria-label="${label} ${t('검색','search')}" placeholder="${t('검색','Search')}">
     <button class="slotmic" aria-label="${label} ${t('이름 말하기','voice search')}" aria-pressed="false">🎙</button>
    </div><div class="suggest" hidden></div><button class="draw" aria-label="${label} ${t('랜덤 뽑기','random draw')}">↻ <span class="draw-full">${t('랜덤 뽑기','Random card')}</span><span class="draw-short">${t('랜덤','Draw')}</span></button></div>`;
   const q=el.querySelector('.pick-query'),list=el.querySelector('.suggest');
@@ -266,7 +266,7 @@
   const guard=events.find(e=>e.i!==w&&e.reason==='ability: Wonder Guard'&&e.effect==='immune');
   if(guard)return t(`불가사의부적이 상대의 ${d.moves[guard.move].name} 공격을 막아 줬어.`,`Wonder Guard blocked the other team’s ${d.moves[guard.move].name}.`);
   const strong=hits.find(e=>e.effect==='strong'&&e.matchup?.factor>1);
-  if(strong){const m=d.moves[strong.move];return t(`${types[strong.matchup.type]} 기술 ${m.name}로 상대의 약점을 찔렀어!`,`${m.name}, a ${types[strong.matchup.type]} move, hit the other team's weakness!`)}
+  if(strong){const m=d.moves[strong.move];return t(`${m.name}! 이 ${types[strong.matchup.type]} 기술이 상대의 약점을 찔렀어!`,`${m.name}, a ${types[strong.matchup.type]} move, hit the other team's weakness!`)}
   const critical=hits.find(e=>e.crit);
   if(critical)return t(`${d.moves[critical.move].name} 기술이 급소에 맞아서 더 강했어!`,`${d.moves[critical.move].name} landed a powerful critical hit!`);
   const best=hits.reduce((best,e)=>!best||best.damage<e.damage?e:best,null);
