@@ -156,3 +156,111 @@ dialog{border:0;border-radius:23px;color:var(--ink);padding:20px}.grounds{border
 .ground-preview img{position:absolute;width:24%;height:48%;object-fit:contain;left:15%;bottom:21%}.ground-preview img:last-child{left:63%;bottom:46%}
 .record p{color:var(--muted);font-size:12px}.record p strong{color:white;background:var(--blue);border-radius:5px;padding:1px 5px;font:700 11px var(--numbers)}
 .record[data-side="1"] p strong{background:var(--red)}.record[data-side="-1"] p strong{background:var(--muted)}
+
+.face-toggle,.face-serial,.draw-short,.coach-brand,.ground-finish,.hud-level,body[data-phase=arena]>nav{display:none}
+@media(max-width:600px){
+ .bar{min-height:56px}
+ .match-hero{padding:2px 14px 44px}
+ body:has(#battle:not([hidden]) #chooser:not([hidden])) header,.match-hero{background-size:11px 11px,100% 536px}
+ .match-hero{background-position:0 -56px,0 -56px}
+ .match-label{height:27px;margin-bottom:13px}
+ #chooser .pair{align-items:stretch;gap:0 18px;margin-top:0}
+ #slot0,#slot1,.pair .shell{grid-template-columns:minmax(0,1fr)}
+ .pair .card,.pair .shell,.pair .inline-pick,.pair .find-row{min-width:0}
+ .pair .card{height:282px;padding:6px;transform:rotate(-3deg);border-radius:20px}
+ #slot1 .card{transform:rotate(3deg)}
+ .pair .shell{position:relative;display:grid;grid-template-rows:36px minmax(0,1fr) 36px 7px;align-content:stretch;padding-bottom:9px;border-radius:15px}
+ .pair .cardtop{display:flex;align-items:center;justify-content:space-between;gap:2px;padding:4px 7px}
+ .pair .serial{display:none}.pair .poke-name{font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .pair .card-hp{font-size:17px}.pair .hp{font-size:10px}
+ #chooser .pair .card .art{height:100%;min-height:0;width:calc(100% - 12px);margin:0 6px}
+ .pair .meta{align-self:center;margin:0 6px;align-items:center;flex-wrap:nowrap;gap:3px}
+ .pair .badge{white-space:nowrap}
+ .pair .shell::after{content:'';grid-row:4;border-radius:6px;background:#2fb45a;margin:0 8px}
+ .pair .face-toggle{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:30px;min-height:28px;margin-left:auto;padding:0 4px;color:#38516c;background:#f1f4fa;border:0;border-radius:7px;font-size:11px}
+ .face-toggle::after{content:'';position:absolute;inset:-6px -3px}
+ .pair .face-serial{display:block;color:var(--muted);font-size:10px}
+ .pair .face-toggle[aria-expanded=true]{background:var(--ink);color:white}
+ .pair .card-info{display:none}
+ .pair .shell:has(.face-toggle[aria-expanded=true]) .card-info{display:block;position:absolute;inset:34px 5px 51px;overflow:auto;padding:6px;border-radius:9px;background:white;box-shadow:inset 0 0 0 1px var(--line)}
+ .pair .shell:has(.face-toggle[aria-expanded=true]) .front{visibility:hidden}
+ .pair .card-info .ability::after{display:none}
+ .pair .card-info .move-title{font-size:11px}.pair .card-info .stats span,.pair .card-info .move small{font-size:11px}
+ .vs{top:104px;transform:translateX(-50%) rotate(-8deg);font:italic 400 50px/1 var(--display);letter-spacing:0}
+ .inline-pick{grid-template-columns:minmax(0,1fr) minmax(48px,.53fr);margin-top:10px;gap:5px}
+ .find-row{position:relative;gap:0;border-radius:13px;background:white}
+ .find-row .pick-query{width:0;flex:1;border:0;background:transparent;padding:4px 2px 4px 7px;font-size:12px}
+ .find-row .slotmic{width:44px;flex:none;font-size:13px;padding:0;background:transparent}
+ .draw-full{display:none}.draw-short{display:inline}.inline-pick .draw{font-size:12px}
+ .shuffle-both{margin:14px auto 0;min-width:149px}
+ .compare-sheet{margin-top:-26px;padding:28px 16px 0;border-radius:28px 28px 0 0}
+ .sheet-heading{margin:0 0 10px}.sheet-heading h2{font-size:19px;line-height:24px}
+ .compare-row{margin:0 0 9px;line-height:19px}.compare-row i{height:12px}
+ .move-heading{margin:18px 0 10px}.move-team{border:0;border-radius:0;overflow:visible}
+ .move-team h3,.move-team:last-child h3{background:none;padding:0 0 6px;font-size:13px}
+ .match-move,.match-move:last-child{display:grid;grid-template-columns:24px minmax(0,1fr) auto;grid-template-rows:auto auto;gap:3px 4px;border:1px solid #e3e7ef;border-radius:14px;margin:0 0 6px;padding:8px}
+ .match-move:has(.strong){border:2px solid #f5c518;background:#fffbea;padding:7px}
+ .match-move i{width:24px;height:24px;background:var(--element);color:var(--ink)}
+ .match-move span{display:contents}.match-move b{grid-column:2/4;align-self:center;font-size:13px}
+ .match-move small{grid-column:1/3;align-self:center}.match-move strong{text-align:center;border-radius:7px;background:#f2f4f9;padding:2px}
+ body:has(#battle:not([hidden]) #chooser:not([hidden])){padding-bottom:0;background:white}
+ #chooser .launch{position:static;width:100%;padding:12px 0 0;margin:0}
+ #chooser #start{width:100%;height:60px;font-size:23px;border-radius:18px}
+ body:has(#battle:not([hidden]) #chooser:not([hidden]))>nav{position:static;width:calc(100% - 32px);margin:16px auto 14px}
+ body:has(#battle:not([hidden]) #chooser:not([hidden])) footer{margin-top:0}
+ body:has(#dex:not([hidden])) header,#dex>.title{background-image:var(--dots),linear-gradient(var(--red),var(--red))}
+ #dex>.title,#history>.title{padding:4px 16px 10px}
+ #dex>.title p,#history>.title p{display:none}
+ #dex .dex-tools{margin:0;background:linear-gradient(var(--red) 0 52px,white 52px);border:0;border-radius:0;padding:0 16px 4px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+ #dexquery{grid-column:1/-1;background:white;min-height:44px;border-radius:14px;margin-bottom:10px}
+ .dex-tools #typeStrip{grid-column:1/-1;grid-row:3}.dex-tools:has(.advanced:not([open])) #typeStrip{display:none}
+ .dex-tools .advanced{grid-row:2;grid-column:1;align-self:center}.dex-tools .advanced[open]{grid-column:1/-1}
+ .advanced[open]~.dex-nav{grid-column:1/-1}
+ .dex-tools .advanced summary{font-size:12px;min-height:32px}
+ .dex-nav{align-self:start;justify-content:end;gap:3px}.dex-nav .switch button{min-height:32px;font-size:11px;padding:2px 7px}.dex-nav #found{font-size:10px}
+ #catalog button{border-left:4px solid var(--row-type,var(--blue));min-height:68px}
+ body:has(#friend:not([hidden])) header{background:var(--blue)}
+ body:has(#friend:not([hidden])) .brandblock,#friend>.title,#friend .coach{display:none}
+ body:has(#friend:not([hidden])) .coach-brand{display:flex;align-items:center;gap:8px}
+ .coach-brand img{width:34px;height:34px;background:white;border-radius:50%}.coach-brand b,.coach-brand small{display:block;color:white}.coach-brand b{font:400 18px var(--display)}.coach-brand small{font-size:11px}
+ #friend .panel{margin:0;padding:12px 14px;min-height:calc(100svh - 145px);grid-template-rows:minmax(0,1fr) auto auto;align-content:stretch}
+ #friend #talk{display:flex;flex-direction:column;min-height:0;max-height:calc(100svh - 305px);overflow:auto}
+ #friend .bubble{align-self:flex-start}#friend .bubble.you{align-self:flex-end}
+ #examples{flex-wrap:nowrap;overflow-x:auto}#examples button{flex:none}
+ #recordSummary{padding:6px 16px 39px}
+ #recordSummary div:last-child{background:var(--ink);color:white}#recordSummary div:last-child span,#recordSummary div:last-child b{color:#f5c518}
+ #history .list-title{position:relative;margin:-23px 0 0;padding:15px 16px 0;background:white;border-radius:24px 24px 0 0}
+ #history .record{position:relative;padding-left:62px;min-height:63px}
+ #history .record img{display:none}#history .record p strong{position:absolute;inset:0 auto 0 0;width:50px;display:grid;place-items:center;border-radius:12px 0 0 12px}
+ dialog:has(.grounds){width:100%;height:100dvh;max-height:100dvh;margin:0;border-radius:0;padding:0 16px 20px}
+ dialog:has(.grounds) #modalbody>h2{margin:0 -16px;padding:14px 16px;min-height:56px;background:var(--ink);color:white;font-size:21px}
+ .grounds{position:relative;display:flex;flex-direction:column;gap:8px;min-height:calc(100dvh - 72px)}
+ .grounds legend{float:left;order:1;margin:6px 0;font:400 19px var(--display)}
+ .grounds .ground-preview{order:0;margin:-8px -16px 0;border-radius:0;height:clamp(175px,36dvh,300px);flex:none}
+ .grounds label{order:2}.ground-thumb{width:86px;height:54px}
+ .ground-finish{display:block;order:3;margin-top:auto;min-height:54px}
+ .ground-thumb:before,.ground-thumb:after{content:'';position:absolute;z-index:1;left:10%;bottom:12%;width:35%;height:15%;border-radius:50%;border:1px solid white;background:var(--blue)}
+ .ground-thumb:after{left:auto;right:12%;bottom:38%;width:29%;background:var(--red)}
+ #modal:has(.grounds) .grounds legend{padding:0 0 2px}
+ body:has(#dex:not([hidden])) #modal:has(#mine){background:var(--ink);box-shadow:0 -6px 24px #101c3a40}
+ body:has(#dex:not([hidden])) #modal:has(#mine) #modalbody{grid-template-columns:1fr 1fr}
+ body:has(#dex:not([hidden])) #modal:has(#mine) .card{grid-column:1/-1;color:var(--ink)}
+ body:has(#dex:not([hidden])) #modal:has(#mine) #mine{background:var(--blue);color:white}
+ body:has(#dex:not([hidden])) #modal:has(#mine) #theirs{background:var(--red);color:white}
+}
+@media(max-width:350px){.pair .badge i{display:none}.pair .badge{padding:2px 4px}.find-row .pick-query{padding-left:4px;font-size:11px}}
+@media(max-width:600px) and (orientation:portrait){
+ #arena{justify-content:flex-start}
+ #arena .arenahead{height:60px;flex:none;padding:6px 12px}
+ #arena #battlefield{width:min(100%,calc((100dvh - 194px) * 390 / 372));aspect-ratio:390/372}
+ .battle-console{padding:12px 0;width:calc(100% - 24px);min-height:0;overflow-y:auto}
+ #log{min-height:82px;padding:14px 16px;position:relative}
+ #log:after{content:'';position:absolute;right:12px;bottom:8px;border-width:7px 6px 0;border-style:solid;border-color:var(--red) transparent transparent}
+ #turns{margin:12px 0}.battle-journal{padding:10px 12px}.battle-journal ol{max-height:13dvh}
+ .pad.near{width:47%;height:13%}.pad.far{width:38%;height:11%}
+ #battlefield #scoreboard .hud{width:min(50%,215px);row-gap:2px}
+ .hud .hud-level{display:block;grid-column:2;grid-row:2;font:700 11px var(--numbers);text-align:right;color:var(--muted)}
+ .hud b{grid-column:1;grid-row:2}.hud .track{grid-column:1;grid-row:3;align-self:center}.hud span{grid-column:2;grid-row:3;font-size:12px}
+ .hud .trainer-tag{grid-row:1}
+ [data-ground=stadium]{--sky-art:radial-gradient(circle at 20% 25%,#ffffffbd 0 1.7px,transparent 2px),radial-gradient(circle at 42% 73%,#f19292 0 2px,transparent 2.4px),radial-gradient(circle at 80% 46%,#8fb4f5 0 2px,transparent 2.6px);--sky-size:16px 13px}
+}

@@ -26,6 +26,21 @@ try{
   assert.equal(await el('.compare-row').count(),6);
   assert.deepEqual(await el('.sheet-heading').first().locator('small b').allTextContents(),['495','709']);
   assert.equal(await el('.match-move').filter({hasText:'10만볼트'}).locator('strong').innerText(),'×2');
+  if(width===390){
+   const layout=await page.evaluate(()=>{
+    const card=document.querySelector('#slot0 .card'),art=card.querySelector('.art');
+    return [card.offsetWidth,card.offsetHeight,art.offsetHeight,document.querySelector('.compare-sheet').getBoundingClientRect().top];
+   });
+   assert.deepEqual(layout.slice(0,3),[172,282,178]);
+   assert.ok(Math.abs(layout[3]-510)<=2,'the comparison sheet starts at the design board position');
+   for(const i of [0,1]){
+    await slot(i).locator('.face-toggle').click();
+    assert.ok(await slot(i).locator('.ability').isVisible());
+    assert.equal(await slot(i).locator('.stats b:visible').count(),6);
+    assert.equal(await slot(i).locator('.moves .move:visible').count(),4);
+    await slot(i).locator('.face-toggle').click();assert.ok(await slot(i).locator('.front').isVisible());
+   }
+  }
   for(const i of [0,1]){
    assert.ok(await slot(i).locator('.badge').count()>0);assert.ok(await slot(i).locator('.move').count()>=3);
    const card=await slot(i).locator('.card').boundingBox(),input=await slot(i).locator('.pick-query').boundingBox(),draw=await slot(i).locator('.draw').boundingBox();
@@ -38,7 +53,9 @@ try{
   assert.ok(await el('nav').isHidden());assert.ok(await el('#start').isHidden());
   assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight),height);
   assert.equal(await el('#hp0').innerText(),'110/110');
-  const field=await el('#battlefield').boundingBox();assert.ok(Math.abs(field.width/field.height-(width<height?.8:16/9))<.01);
+  const field=await el('#battlefield').boundingBox();
+  const expectedRatio=width>height?16/9:width<=600?390/372:.8;
+  assert.ok(Math.abs(field.width/field.height-expectedRatio)<.01);
   await el('#speed').click();assert.equal(await el('#speed').getAttribute('aria-pressed'),'true');
   await page.waitForFunction(()=>document.querySelector('#battlefield').dataset.scene==='battle');await shot('battle');
   await el('#skip').click();await el('#result h2').waitFor();await shot('result');
