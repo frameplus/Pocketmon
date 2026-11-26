@@ -74,8 +74,8 @@ const Game=(()=>{
        `${name}’s ${def} type was immune to that ${t} move, so it dealt no damage.`:
        `${name}의 ${def} 타입에는 그 ${t} 기술이 통하지 않아. 그래서 체력이 그대로였어.`;
      if(e.damage&&m.factor===1&&!e.effect)return en?
-       `That ${t} move did not hit a weakness of ${name}’s ${def} type.`:
-       `${name}의 ${def} 타입에는 이 ${t} 기술이 보통 세기로 통해.`;
+       `The ${t} move had normal effectiveness (1×) against ${name}’s ${def} type.`:
+       `${t} 기술은 ${name}의 ${def} 타입에 보통 세기로 통해. 속성 효과는 1배야.`;
      return '';
    }
  function bigHit(e){
@@ -158,6 +158,6 @@ const Game=(()=>{
    }
    return [whyWon,whyLost]
  }
- return {fieldSizes,types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,describe,explain,bigHit,impactLesson}
+ return {fieldSizes,types,englishTypes,englishStats,total,powerRanks,icons,colors,statNames,norm,index,search,heard,similar,hp,effect,describe,explain,bigHit,impactLesson,typeLesson}
 })();
 if(typeof module!=='undefined')module.exports=Game;else window.Game=Game;

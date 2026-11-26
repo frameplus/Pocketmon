@@ -7,6 +7,7 @@ try{
  browser=await chromium.launch({executablePath:process.env.CHROME_BIN||undefined,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--use-fake-device-for-media-stream']});
  await require('./narration-words.cjs')(browser,url);
  await require('./dex-layout.cjs')(browser,url);
+ await require('./result-home.cjs')(browser,url);
  await require('./stadium.cjs')(browser,url);
  await require('./transitions.cjs')(browser,url);
  await require('./entrance.cjs')(browser,url);
