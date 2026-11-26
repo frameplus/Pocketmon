@@ -15,13 +15,20 @@ try{
   const el=s=>page.locator(s);
   const menu=name=>el('nav a[href="#'+name+'"]').click();
   const name=i=>el('#slot'+i+' .poke-name').innerText();
-  const change=i=>el('#slot'+i+' .change').click();
-  const search=async(i,query)=>{await change(i);await el('#pickQuery').fill(query);await el('#suggest button').first().click()};
+  const slot=i=>el('#slot'+i);
+  const search=async(i,query)=>{await slot(i).locator('.pick-query').fill(query);await slot(i).locator('.suggest button').first().click()};
   const shot=async stage=>{if(process.env.SCREENSHOTS){fs.mkdirSync('screenshots',{recursive:true});await page.screenshot({path:`screenshots/${stage}-${width}.png`})}};
   page.on('pageerror',e=>errors.push(e.message));await page.goto(url);
-  await el('#start').waitFor();assert.equal(await name(0),'피카츄');assert.equal(await el('#slot0 .card-hp').innerText(),'HP 110');
+  await el('#start').waitFor();assert.equal(await name(0),'피카츄');assert.equal(await el('#slot0 .card-hp').innerText(),'110');
   assert.ok(await el('#language').isHidden());assert.equal(await el('#prediction').count(),0);
-  const box=await el('#slot0 .front').boundingBox();assert.ok(Math.abs(box.width/box.height-5/7)<.012);
+  assert.deepEqual(await slot(0).locator('.stats b').allTextContents(),['110','75','60','70','70','110']);
+  assert.match(await slot(0).locator('.ability').innerText(),/정전기/);
+  for(const i of [0,1]){
+   assert.ok(await slot(i).locator('.badge').count()>0);assert.ok(await slot(i).locator('.move').count()>=3);
+   const card=await slot(i).locator('.card').boundingBox(),input=await slot(i).locator('.pick-query').boundingBox(),draw=await slot(i).locator('.draw').boundingBox();
+   assert.ok(input.y>=card.y+card.height-1&&draw.y>=input.y-1);
+   assert.ok(draw.y+draw.height<=(await el('.launch').boundingBox()).y,'direct draw is visible on first screen');
+  }
   await shot('choose');
   await el('#start').click();
   assert.ok(await el('nav').isHidden());assert.ok(await el('#start').isHidden());
@@ -36,11 +43,11 @@ try{
   await el('.record button').first().click();await el('#exit').click();await menu('history');assert.equal(await el('.record').count(),2);
   await menu('battle');await el('#settings').click();await el('#trainer0').fill('번개 팀');await el('#trainer1').fill('별빛 팀');
   await el('#newpin').fill('1357');await el('#setpin button').click();await page.waitForFunction(()=>document.querySelector('#pinmsg').textContent.includes('저장'));
-  await el('#close').click();assert.equal(await el('#slot1 .team').innerText(),'별빛 팀');
-  for(const i of [0,1]){const old=await name(i),other=await name(1-i);await change(i);await el('#draw').click();assert.notEqual(await name(i),old);assert.equal(await name(1-i),other)}
+  await el('#close').click();assert.match(await el('#slot1 .serial').innerText(),/별빛 팀/);
+  for(const i of [0,1]){const old=await name(i),other=await name(1-i);await slot(i).locator('.draw').click();assert.notEqual(await name(i),old);assert.equal(await name(1-i),other)}
   await search(0,'Charizard');await el('#slot0 .front').click();assert.equal(await el('#modal .stats span').count(),6);assert.ok(await el('#modal .move').count()>=3);
   await el('[data-form="10034"]').click();assert.equal(await name(0),'메가리자몽X');await search(1,'ㅍㅋㅊ');assert.equal(await name(1),'피카츄');
-  await change(0);await el('#browse').click();await el('#dexquery').fill('Terapagos');await el('#catalog button').first().click();assert.equal(await name(0),'테라파고스');
+  await slot(0).locator('.front').click();await el('#browse').click();await el('#dexquery').fill('Terapagos');await el('#catalog button').first().click();assert.equal(await name(0),'테라파고스');
   await menu('friend');await el('#examples button').nth(1).click();await page.waitForFunction(()=>document.querySelector('#talk').textContent.includes('물대포'));
   await page.context().grantPermissions(['microphone'],{origin:new URL(url).origin});
   assert.ok(await page.evaluate(async()=>{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const ok=stream.getAudioTracks().some(t=>t.readyState==='live');stream.getTracks().forEach(t=>t.stop());return ok}));
@@ -50,7 +57,7 @@ try{
   await page.evaluate(()=>{window.testMic.onerror({error:'not-allowed'});window.testMic.onend()});assert.match(await el('#speech').innerText(),/허용/);
   await el('#settings').click();assert.ok(await el('#parentExtras').isHidden());await el('#pin').fill('1357');await el('#unlock button').click();
   await el('#language').click();await page.waitForFunction(()=>document.documentElement.lang==='en');await menu('battle');
-  await el('#slot0 .front').click();assert.equal(await el('.region-tag').innerText(),'Paldea');assert.match(await el('.stats').innerText(),/Attack/);await el('#close').click();
+  await el('#slot0 .front').click();assert.equal(await el('.region-tag').innerText(),'Paldea');assert.match(await el('#modal .stats').innerText(),/Attack/);await el('#close').click();
   await el('#start').click();await el('#skip').click();await el('#result h2').waitFor();assert.doesNotMatch(await el('#result').innerText(),/[가-힣]/);
   await menu('dex');await el('#dexquery').fill('');await el('.advanced summary').click();await el('#regionFilter').selectOption('kanto');await el('#kindFilter').selectOption('mega');await el('[data-type="10"]').click();await el('#powerOrder').click();
   assert.equal(await el('#catalog button').count(),2);assert.match(await el('#catalog').innerText(),/Mega Charizard X/);

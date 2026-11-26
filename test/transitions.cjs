@@ -52,8 +52,8 @@ module.exports=async function testTransitions(browser,url){
    }
   });
   await page.locator('nav a[href="#battle"]').click();
-  await page.locator('#slot1 .change').click();await page.locator('.slotmic').click();
-  await page.locator('#pickQuery').focus();
+  await page.locator('#slot1 .slotmic').click();
+  await page.locator('#slot0 .pick-query').focus();
   await page.evaluate(()=>{
    const row=Object.assign([{transcript:'꼬부기'}],{isFinal:true});
    window.recording.onresult({results:[row]});

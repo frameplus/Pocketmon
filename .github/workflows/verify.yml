@@ -19,6 +19,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: sudo apt-get update -qq && sudo apt-get install -y espeak-ng
       - run: node scripts/vendor-3d.cjs
+      - run: node scripts/cache-cards.cjs
       - run: npm test
       - run: npm install --no-save --ignore-scripts playwright@1.55.0
       - run: google-chrome --version
