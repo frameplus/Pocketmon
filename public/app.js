@@ -217,7 +217,7 @@
   if(id!==epoch)return;
   updateHP(result.initial,result.initial);
   const events=result.events,long=events.length>22;
-  const highlights=long?events.filter((e,k)=>k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
+  const highlights=long?events.filter((e,k)=>e.finisher||k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
   for(const e of highlights){
    if(id!==epoch)return;if(playback.stopped)break;
    const m=d.moves[e.move],description=G.describe(e,pair,d,en);
@@ -225,10 +225,10 @@
    $('round').textContent=(long?t('주요 장면 · ','Highlights · '):'')+(en?'Turn '+e.round:e.round+'턴');
    if(e.kind==='move'&&m){
     $('log').textContent=en?`${pair[e.i].name} used ${m.name}!`:`${pair[e.i].name}의 ${m.name}!`;
-    await combat.play(e,m,{typeName:types[e.matchup?.type||m.type],rate:()=>playback.rate,impact(){
+    await combat.play(e,m,{attacker:pair[e.i],typeName:types[e.matchup?.type||m.type],rate:()=>playback.rate,impact(){
      if(id===epoch){
       updateHP(e.hp,e.max);$('log').textContent=description;ArenaUI.journal(description);
-      if(e.damage>0&&!mute&&!rec&&readingState!=='playing'&&readingState!=='loading')narrator.impactSound(e.matchup?.type||m.type);
+      if(e.damage>0&&!mute&&!rec&&readingState!=='playing'&&readingState!=='loading')narrator.impactSound(e.matchup?.type||m.type,e.finisher);
      }
     }});
    }else{

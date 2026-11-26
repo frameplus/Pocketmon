@@ -40,7 +40,9 @@ function makeSimulator(data) {
     const battle=start(ids,seed);
     try {
       const active = () => battle.sides.map(s=>s.active[0]||s.pokemon[0]);
-      active().forEach(applyJuniorRules);
+      // Two of six outcomes charge one side. Forecast and replay take the same draw.
+      const finisher={side:battle.random(6)};
+      active().forEach(p=>applyJuniorRules(p,finisher));
       const initial = active().map(p=>p.maxhp), events=[];
       let hp=active().map(p=>p.hp), max=initial.slice();
       const contexts=record?observeHits(battle):null;
@@ -69,7 +71,7 @@ function makeSimulator(data) {
 }
 
 // Resolve accuracy, type, stats, abilities and criticals in Showdown first.
-function applyJuniorRules(pokemon){
+function applyJuniorRules(pokemon,finisher){
   const original=pokemon.damage;
   let turn=-1,remaining=0;
   pokemon.damage=function(amount,source,effect){
@@ -81,7 +83,15 @@ function applyJuniorRules(pokemon){
     }
     const knee=this.maxhp*.20;
     const paced=effect?.effectType==='Move'?Math.min(amount,knee)+Math.max(0,amount-knee)*.30:amount;
-    const actual=original.call(this,Math.min(remaining,Math.max(1,Math.floor(paced))),source,effect);
+    const ordinary=Math.min(remaining,Math.max(1,Math.floor(paced)));
+    const charged=turn>=2&&source&&source.side!==this.side&&source.side.n===finisher.side&&
+      effect?.effectType==='Move'&&effect.basePower>0&&effect.id===this.battle.activeMove?.id;
+    const boosted=charged?Math.min(remaining,ordinary+Math.max(1,Math.floor(ordinary*.25))):ordinary;
+    const actual=original.call(this,boosted,source,effect);
+    if(charged&&actual>ordinary){
+      finisher.side=-1;
+      this.battle.add('-arena-finisher',source);
+    }
     remaining-=actual;
     return actual;
   };
@@ -168,6 +178,7 @@ function readTurn(lines,round,startHp,startMax,contexts,cursor){
       event.hp=hp.slice();event.max=max.slice();continue;
     }
     if(!event||event.kind!=='move')continue;
+    if(tag==='-arena-finisher'&&i===event.i)event.finisher=true;
     if(tag==='-crit')event.crit=true;
     if(tag==='-supereffective')event.effect='strong';
     if(tag==='-resisted')event.effect='weak';

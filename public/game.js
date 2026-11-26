@@ -53,7 +53,7 @@ const Game=(()=>{
    if(e.kind==='cant')return en?p+' could not move this turn.':p+'는 이번 차례에 움직이지 못했어.';
    if(e.kind==='heal')return en?p+' recovered '+e.damage+' HP.':p+'의 HP가 '+e.damage+' 회복됐어.';
    if(e.kind==='indirect')return en?p+' lost '+e.damage+' HP from a battle effect.':p+'의 HP가 전투 효과로 '+e.damage+' 줄었어.';
-   const lead=en?p+' used '+name+'! ':p+'의 '+name+'! ';
+   const lead=(e.finisher?(en?'Special! ':'필살기! '):'')+(en?p+' used '+name+'! ':p+'의 '+name+'! ');
    const words={strong:['효과가 굉장해!','Super effective!'],weak:['효과가 약해.','It was resisted.'],miss:['빗나갔어.','It missed.'],immune:['효과가 없어.','No effect.'],prepare:['다음 공격을 준비해!','Charging up!'],fail:['이번에는 실패했어.','It failed this turn.']};
    return lead+(words[e.effect]?.[en?1:0]||'')+(e.crit?(en?' Critical hit!':' 급소에 맞았어!'):'')+(e.damage?' −'+e.damage+' HP':'');
  }

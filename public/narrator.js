@@ -49,13 +49,15 @@ function createNarrator(lang,onState){
     voiceListener=null;
   }
   let tone;
-  function impactSound(type){
+  function impactSound(type,finisher){
     if(context?.state!=='running'||tone)return;
     const notes={10:[210,80],11:[330,680],12:[420,310],13:[820,260],15:[910,590]};
-    const [from,to]=notes[type]||[165,95],now=context.currentTime,length=.18;
+    const [from,to]=notes[type]||[165,95],now=context.currentTime,length=finisher ? .34 : .18;
     const voice=context.createOscillator(),volume=context.createGain();
     tone=voice;voice.type=type===13?'triangle':'sine';
-    voice.frequency.setValueAtTime(from,now);voice.frequency.exponentialRampToValueAtTime(to,now+length);
+    voice.frequency.setValueAtTime(finisher?from*1.5:from,now);
+    if(finisher)voice.frequency.exponentialRampToValueAtTime(from*.65,now+.09);
+    voice.frequency.exponentialRampToValueAtTime(to,now+length);
     volume.gain.setValueAtTime(.0001,now);volume.gain.exponentialRampToValueAtTime(.10,now+.018);
     volume.gain.exponentialRampToValueAtTime(.0001,now+length);
     voice.connect(volume);volume.connect(context.destination);

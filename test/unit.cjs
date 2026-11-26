@@ -79,6 +79,22 @@ test('prediction and playback resolve the same paced battle, including multi-hit
  const strike=clash.events.find(e=>e.damage>0);
  assert.ok(strike&&strike.damage<=Math.floor(strike.max[strike.j]*.32));
 });
+test('occasional finishers are recorded once per duel on a connected damaging attack',()=>{
+ const moves=(ids,seed,record=true)=>sim.simulate(ids,{seed,record});
+ let count=0;
+ for(let i=1;i<=72;i++){
+  const ids=[25,6],seed=[i,15,5,15+i],result=moves(ids,seed);
+  const special=result.events.filter(e=>e.finisher);
+  assert.ok(special.length<=1);
+  if(!special.length)continue;
+  count++;
+  const [hit]=special;
+  assert.ok(hit.kind==='move'&&hit.round>=2&&hit.damage>0&&hit.damage<=Math.floor(hit.max[hit.j]*.32));
+  assert.equal(result.winner,moves(ids,seed,false).winner);
+  assert.deepEqual(special,moves(ids,seed).events.filter(e=>e.finisher));
+ }
+ assert.ok(count>0&&count<72);
+});
 test('Magikarp only uses its chosen game learnset; forecast plays that battle',()=>{
  assert.deepEqual(by.get(129).moves,[33,175,150]);assert.equal(by.get(129).learnsetGroup,25);
  const draws=sim.forecast([129,4],80);assert.deepEqual(draws,{wins:[0,80,0],count:80});

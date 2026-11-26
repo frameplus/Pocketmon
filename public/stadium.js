@@ -222,7 +222,7 @@ export function createStadium(field){
      if(i===action.i){
       const load=Math.sin(Math.PI*clamp(t/.31));
       const drive=Math.sin(Math.PI*clamp((t-.21)/.65));
-      const stride=action.travel ? .65 : .16;
+      const stride=action.travel ? .65 : action.style==='lightning' ? .19 : .16;
       s.base.position.x+=(other.x-from.x)*stride*drive-dir*.31*load;
       s.base.position.z+=(other.z-from.z)*stride*drive;
       s.base.position.y+=drive*(action.travel ? .46 : .24);
@@ -230,9 +230,17 @@ export function createStadium(field){
       s.base.rotation.y+=dir*(.29*drive-.20*load);
       s.base.rotation.x=.13*drive-.09*load;
       s.base.rotation.z=dir*-.055*drive;
+      if(action.style==='lightning'){
+       s.base.position.y+=.29*drive;s.base.scale.y*=1-.08*load;
+      }else if(action.style==='flame'){
+       s.base.rotation.x+=.17*drive-.13*load;
+       s.base.rotation.y+=dir*.08*Math.sin(t*16)*drive;
+      }else if(action.style==='tail'){
+       s.base.rotation.y+=dir*1.35*Math.sin(2*Math.PI*clamp((t-.18)/.69));
+      }
      }else if(t>=.53){
       const bump=Math.sin(Math.PI*clamp((t-.53)/.41));
-      s.base.position.x-=dir*bump*(action.connects ? .43 : .18);
+      s.base.position.x-=dir*bump*(action.special ? .62 : action.connects ? .43 : .18);
       s.base.position.y+=bump*(action.miss ? .39 : .20);
       s.base.rotation.x=-.15*bump;
      }
