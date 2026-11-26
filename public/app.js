@@ -48,7 +48,7 @@
   r.onend=()=>{if(generation!==voiceEpoch)return;rec=null;markMic(false);if(failed)return;if(!choices.length){notify(t('다시 누르고 말해 줘.',"Tap again and say a name."));return}const ranked=choices.map(t=>[G.heard(idx,t).length,t]).sort((a,b)=>b[0]-a[0]);notify(t('들은 말 · ',"Heard · ")+ranked[0][1]);ask(ranked[0][1],side)};
   try{notify(t('마이크 연결 중…',"Connecting microphone…"),true);r.start()}catch{rec=null;notify(t('마이크를 시작할 수 없어. 권한을 확인해 줘.',"Could not start the mic. Check permissions."))}
  }
- function card(p,side,interactive=false){
+ function card(p,side,interactive=false,slotIndex){
   const moves=p.moves.map(id=>{
    const m=d.moves[id],power=m.power?String(m.power):m.category===1?t('변화 기술','Status move'):t('특수 위력','Variable power');
    return `<div class="move" style="--move-type:${G.colors[m.type]}"><b>${esc(m.name)}</b><small>${G.icons[m.type]} ${types[m.type]} · ${power}</small></div>`;
@@ -57,8 +57,8 @@
   return `<article class="card" style="--t:${G.colors[p.types[0]]};--u:${G.colors[p.types.at(-1)]}"><div class="shell">
    <div class="cardtop"><small class="serial">${esc(side)} · No.${String(p.dex).padStart(4,'0')}</small>
    <h2 class="poke-name">${esc(p.name)}</h2><span class="hp">HP <b class="card-hp">${p.battleStats[0]}</b></span></div>
-   ${art}<div class="meta">${badges(p)}</div>
-   <div class="card-info"><p class="ability"><span>${t('특성','Ability')}</span> <b>${esc(en?p.ability.en:p.ability.ko)}</b></p>
+   ${art}<div class="meta">${badges(p)}${interactive?`<button class="face-toggle" aria-label="${esc(side)} · ${esc(p.name)} · ${t('카드 정보','Card information')}" aria-expanded="false" aria-controls="face-info-${slotIndex}">${t('정보','Info')}</button>`:''}</div>
+   <div class="card-info" ${interactive?`id="face-info-${slotIndex}"`:''}>${interactive?`<small class="face-serial">${esc(side)} · No.${String(p.dex).padStart(4,'0')}</small>`:''}<p class="ability"><span>${t('특성','Ability')}</span> <b>${esc(en?p.ability.en:p.ability.ko)}</b></p>
    <h3 class="move-title">${t('Lv.50 능력치','Lv.50 stats')}</h3>
    <div class="stats">${p.battleStats.map((v,i)=>`<span>${stats[i]}<b>${v}</b></span>`).join('')}</div>
    <h3 class="move-title">${t('기술 · 위력','Moves · Power')}</h3><div class="moves">${moves}</div>
@@ -69,13 +69,19 @@
  function sideName(i){return i?t('상대 카드','Opponent’s card'):t('내 카드','My card')}
  function slot(i){
   const p=pair[i],el=$('slot'+i),label=sideName(i);
-  el.innerHTML=card(p,trainers[i].trim()||label,true)+`
+  el.innerHTML=card(p,trainers[i].trim()||label,true,i)+`
    <div class="inline-pick"><div class="find-row">
     <input class="pick-query" type="search" autocomplete="off" aria-label="${label} ${t('이름 검색','name search')}" placeholder="${t('이름 검색','Search name')}">
     <button class="slotmic" aria-label="${label} ${t('이름 말하기','voice search')}" aria-pressed="false">🎙</button>
-   </div><div class="suggest" hidden></div><button class="draw" aria-label="${label} ${t('랜덤 뽑기','random draw')}">↻ ${t('랜덤 뽑기','Random card')}</button></div>`;
+   </div><div class="suggest" hidden></div><button class="draw" aria-label="${label} ${t('랜덤 뽑기','random draw')}">↻ <span class="draw-full">${t('랜덤 뽑기','Random card')}</span><span class="draw-short">${t('랜덤','Draw')}</span></button></div>`;
   const q=el.querySelector('.pick-query'),list=el.querySelector('.suggest');
   el.querySelector('.front').onclick=()=>details(i);
+  const toggle=el.querySelector('.face-toggle');
+  toggle.onclick=()=>{
+   const open=toggle.getAttribute('aria-expanded')!=='true';
+   toggle.setAttribute('aria-expanded',String(open));toggle.textContent=open?t('그림','Art'):t('정보','Info');
+   el.querySelector('.card-info').tabIndex=open?0:-1;
+  };
   q.onfocus=()=>{target=i};
   q.oninput=()=>{
    questionEpoch++;list.hidden=!q.value.trim();
@@ -125,7 +131,7 @@
   const sizes=G.fieldSizes(pair);
   sizes.forEach((size,i)=>$('battlefield').style.setProperty(i?'--far-size':'--near-size',size));
   $('actors').innerHTML=pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}" style="--fighter-size:${sizes[i]}">${fighter(p,i)}</div>`).join('');
-  $('scoreboard').innerHTML=pair.map((p,i)=>`<div class="hud"><div class="trainer-tag">${esc(trainers[i])}</div><b>${esc(p.name)}</b><span id="hp${i}">${G.hp(p)}/${G.hp(p)}</span><div class="track"><i id="bar${i}" style="width:100%"></i></div></div>`).join('');
+  $('scoreboard').innerHTML=pair.map((p,i)=>`<div class="hud"><div class="trainer-tag">${esc(trainers[i])}</div><b>${esc(p.name)}</b><small class="hud-level">Lv.50</small><span id="hp${i}">${G.hp(p)}/${G.hp(p)}</span><div class="track"><i id="bar${i}" style="width:100%"></i></div></div>`).join('');
  }
  function phase(name){
   document.body.dataset.phase=name;
@@ -177,7 +183,7 @@
  });
  $('speed').onclick=()=>{if(busy){const rate=playback.toggle();$('speed').setAttribute('aria-pressed',String(rate===2));stadium?.setRate(rate)}};
  $('skip').onclick=()=>{if(busy){playback.stop();combat.clear()}};
- $('exit').onclick=()=>{refresh();$('start').focus()};
+ $('exit').onclick=()=>{refresh();$('start').focus({preventScroll:true})};
  async function entrance(id){
   const field=$('battlefield'),still=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   field.dataset.scene='throw';
@@ -297,7 +303,7 @@
    else if(!$('dexquery').value.trim())matches.sort((a,b)=>a.dex-b.dex||a.id-b.id);
    $('rankRule').hidden=!powerOrder;$('dexOrder').setAttribute('aria-pressed',String(!powerOrder));$('powerOrder').setAttribute('aria-pressed',String(powerOrder));
    $('found').textContent=matches.length.toLocaleString()+t('장',' cards');
-   $('catalog').innerHTML=matches.slice(0,pageSize).map(p=>`<button data-card="${p.id}">${powerOrder?`<span class="place">#${ranks.get(p.id)}</span>`:''}${img(p,'loading="lazy"')}<small>No.${String(p.dex).padStart(4,'0')} · ${esc(region(p.region))}</small><b>${esc(p.name)}</b><small>${badges(p)}</small><strong class="power">${G.total(p)}<small>${t('종족값 합계','Base total')}</small></strong></button>`).join('')||t('조건에 맞는 포켓몬이 없어. 필터를 바꿔 봐!','No matches. Try a different filter.');
+   $('catalog').innerHTML=matches.slice(0,pageSize).map(p=>`<button data-card="${p.id}" style="--row-type:${G.colors[p.types[0]]}">${powerOrder?`<span class="place">#${ranks.get(p.id)}</span>`:''}${img(p,'loading="lazy"')}<small>No.${String(p.dex).padStart(4,'0')} · ${esc(region(p.region))}</small><b>${esc(p.name)}</b><small>${badges(p)}</small><strong class="power">${G.total(p)}<small>${t('종족값 합계','Base total')}</small></strong></button>`).join('')||t('조건에 맞는 포켓몬이 없어. 필터를 바꿔 봐!','No matches. Try a different filter.');
    $('more').hidden=pageSize>=matches.length
  }
  for(const id of ['kindFilter','regionFilter'])$(id).onchange=()=>{pageSize=36;catalog()};
@@ -361,7 +367,7 @@
  $('dexquery').oninput=()=>{pageSize=36;catalog()};$('more').onclick=()=>{pageSize+=36;catalog()};
  $('catalog').onclick=e=>{const btn=e.target.closest('[data-card]');if(!btn)return;const p=by.get(+btn.dataset.card);if(dexSide!==null){const side=dexSide;go('battle');choose(side,p);return}openModal(card(p,t('전국도감',"National Dex"))+`<button id="mine">${t('내 카드로','Pick for me')}</button><button id="theirs">${t('상대 카드로','Pick as opponent')}</button>`);for(let [n,i] of [['mine',0],['theirs',1]])$(n).onclick=()=>{$('modal').close();choose(i,p);go('battle')}};
  $('chat').onsubmit=e=>{e.preventDefault();ask($('message').value)};$('examples').onclick=e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent)};
- document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=()=>mic());document.querySelectorAll('header a[href^="#"]').forEach(a=>a.onclick=e=>{e.preventDefault();if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);go(a.hash.slice(1))});window.onhashchange=()=>go(location.hash.slice(1));
+ document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=()=>mic());document.querySelectorAll('header a[href^="#"],nav a').forEach(a=>a.onclick=e=>{e.preventDefault();if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);go(a.hash.slice(1))});window.onhashchange=()=>go(location.hash.slice(1));
  buildField($('battlefield'));
  document.querySelector('.battle-journal').open=matchMedia('(min-height:760px)').matches;
  const view=$('battlefield');

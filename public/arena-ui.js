@@ -19,6 +19,10 @@ const ArenaUI = (() => {
   preview.className='ground-preview';preview.setAttribute('aria-hidden','true');
   preview.innerHTML='<i class="horizon"></i><i class="pitch"></i><i class="pad near"></i><i class="pad far"></i>'+pair.map(p=>`<img src="/art/${p.id}" alt="">`).join('');
   fieldset.querySelector('legend').after(preview);
+  const finish=document.createElement('button');
+  finish.type='button';finish.className='ground-finish mainbtn';finish.textContent=t('이 배경으로 적용','Use this background');
+  finish.onclick=()=>{save(document.body.dataset.ground);parent.closest('dialog').close()};
+  fieldset.append(finish);
   fieldset.onchange=e=>{setGround(e.target.value);save(document.body.dataset.ground)};
   parent.prepend(fieldset);
  }
