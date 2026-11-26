@@ -45,6 +45,7 @@ module.exports=async function testStadium(browser,url){
   const response=page.waitForResponse(r=>r.url().endsWith('/api/battle/25/6')&&r.request().method()==='POST');
   await page.locator('#start').click();
   await page.waitForFunction(()=>window.paintedFrames>=3);assert.ok(await field.locator('.world').isVisible());
+  assert.equal(await field.locator('.scenery').evaluate(el=>getComputedStyle(el).visibility),'visible','the selected background remains visible behind WebGL');
   const {events,winner}=await (await response).json();
   assert.ok(events.at(-1).round>=4);
   assert.deepEqual(new Set(events.filter(e=>e.kind==='move').map(e=>e.i)),new Set([0,1]));

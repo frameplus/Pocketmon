@@ -7,7 +7,7 @@ const Game=(()=>{
  function fieldSizes(pair){
    const heights=pair.map(p=>p.heightDm>0?p.heightDm:10),largest=Math.max(...heights);
    const frame=.74+.29*largest/(largest+12);
-   return heights.map(h=>frame*(.30+.70*Math.pow(h/largest,.70)));
+  return heights.map(h=>.85*frame*(.30+.70*Math.pow(h/largest,.70)));
  }
  function powerRanks(all){
    const sorted=[...all].sort((a,b)=>total(b)-total(a)||a.dex-b.dex||a.id-b.id);

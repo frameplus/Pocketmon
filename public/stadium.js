@@ -6,85 +6,6 @@ const standardPads=[new T.Vector3(-2.05,0,.95),new T.Vector3(2.0,0,-.55)];
 const angles=[.39,-.55];
 const still=matchMedia('(prefers-reduced-motion: reduce)');
 const clamp=v=>Math.max(0,Math.min(1,v));
-function paintArena(scene,marks){
- const meshes=new Map(),materials=new Map();
- const shapes={slab:new T.BoxGeometry(1,1,1),disc:new T.CylinderGeometry(1,1,1,64),stone:new T.DodecahedronGeometry(1,0),ring:new T.TorusGeometry(1,.018,6,72)};
- function put(shape,color,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0){
-  const obj=new T.Object3D();obj.position.set(x,y,z);obj.scale.set(sx,sy,sz);obj.rotation.set(rx,ry,rz);obj.updateMatrix();
-  const key=shape+color;if(!meshes.has(key))meshes.set(key,{shape,color,items:[]});
-  meshes.get(key).items.push(obj.matrix);
- }
- const ring=(c,x,y,z,r)=>put('ring',c,x,y,z,r,r,r,-Math.PI/2);
- put('slab',0x76bcb0,0,-1.1,0,60,1,48);
- put('disc',0x688991,0,-.39,0,8.7,.83,7.2);put('disc',0xc9d8d8,0,-.09,0,8.5,.45,7.0);
- put('disc',0x94c9b4,0,.09,0,8.24,.18,6.76);
- // Stone pavers and colored lanes on the stadium floor.
- for(let i=-7;i<=7;i++)for(let j=-5;j<=5;j++){
-  const x=i*1.05+(j%2)*.525,z=j*.82;
-  if(x*x/51+z*z/26>1)continue;
-  put('slab',[0xc1cdbd,0xafc3b8,0xb5c9bf,0xc3d1c5][Math.abs(i*13+j*7)%4],x,.18,z,1.035,.045,.807);
- }
- const colors=[0x8861cc,0xe68c47];
- marks.forEach((mark,i)=>{
-  for(const [r,y,c] of [[1.62,.21,colors[i]],[1.47,.24,i?0xf2ba80:0xb3a1e1]]){
-   const tile=new T.Mesh(shapes.disc,new T.MeshStandardMaterial({color:c}));
-   tile.position.y=y;tile.scale.set(r,.025,r);tile.receiveShadow=true;mark.add(tile);
-  }
-  const border=new T.Mesh(shapes.ring,new T.MeshStandardMaterial({color:0xfff8e6}));
-  border.rotation.x=-Math.PI/2;border.position.y=.257;border.scale.setScalar(1.32);mark.add(border);scene.add(mark);
- });
- ring(0xf9f4dd,0,.22,0,.77);ring(0xa4b9ac,0,.218,0,.92);
- put('slab',0xfff9e2,0,.225,0,1.52,.012,.045);
- put('disc',0xf9f6de,0,.235,0,.17,.02,.17);
- for(let i=0;i<40;i++){
-  const a=2*Math.PI*i/40,x=Math.sin(a)*8,z=Math.cos(a)*6.55;
-  if(z<1.4){
-   put('slab',0x577b86,x,.5,z,1.14,.53,.22,0,a);
-   put('slab',i%5===0?0xf9be68:0xbeefdc,x,.79,z,1.14,.075,.26,0,a);
-   if(i%2===0)put('slab',0xeff2df,x,.53,z,.13,.75,.32,0,a);
-  }
- }
- // Low terraced stands and trees on the distant rim keep the arena in view.
- for(let i=-7;i<=7;i++){
-  const x=i*1.62,z=-6.4+Math.abs(i)*.12;
-  put('slab',0xcbddd2,x,.37,z,1.62,.8,1.28);
-  put('slab',0x80a5aa,x,.83,z-.36,1.62,.28,.8);
-  for(let j=0;j<3;j++)put('slab',[0xf5bf70,0xa19ada,0x86cbcc][Math.abs(i+j)%3],x-.49+j*.46,1.01,z-.44,.36,.14,.39);
-  if(i%2===0){
-   const tx=x+.5;put('slab',0x897554,tx,.72,z-2,.26,1.45,.25);
-   put('stone',0x3b936e,tx,1.58,z-2,.96,1.13,.85);
-   put('stone',0x78bc77,tx-.21,2.04,z-2,.72,.77,.7);
-  }
- }
- // Goal arches, illuminated team stripes and shaded planting beds frame the dueling lane.
- for(const side of [-1,1]){
-  const x=3.98*side,z=-2.55,c=side<0?0x9360dd:0xf69b3b;
-  put('disc',0x528784,x,.18,z,.82,.26,.53);
-  put('disc',0x405c73,x,.36,z,.61,.12,.43);
-  for(const k of [-1,1]){
-   put('slab',0x4d6581,x+k*.4,.74,z,.17,.85,.18,0,0,-k*.18);
-   put('slab',c,x+k*.45,.75,z+.09,.06,.49,.05,0,0,-k*.18);
-  }
-  put('ring',c,x,1.18,z,.67,.67,2.6,Math.PI*.35);
-  put('ring',0xffedb8,x,1.20,z,.59,.59,1.75,Math.PI*.35);
-  for(let k=0;k<3;k++){
-   const tx=side*(4.48+k*.58),tz=-2.42-k*.84;
-   put('disc',0x6e976c,tx,.19,tz,.77,.22,.68);
-   put('slab',0x8d6d49,tx,.64,tz,.22,.95,.23);
-   put('stone',0x37866e,tx,1.32,tz,.68,.84,.65);
-   put('stone',0x77b778,tx-.12,1.79,tz,.55,.54,.53);
-  }
- }
- for(let i=0;i<18;i++){
-  const a=(i*.86+.6),x=Math.sin(a)*7.55,z=Math.cos(a)*6.25;
-  put('stone',i%2?0x77ad7c:0x69a879,x,.27,z,.43,.24,.38);
- }
- for(const {shape,color,items} of meshes.values()){
-  if(!materials.has(color))materials.set(color,new T.MeshStandardMaterial({color,roughness:.9}));
-  const batch=new T.InstancedMesh(shapes[shape],materials.get(color),items.length);
-  items.forEach((m,i)=>batch.setMatrixAt(i,m));batch.receiveShadow=true;batch.castShadow=shape==='stone';scene.add(batch);
- }
-}
 // Measure the silhouette in the battle camera, so a long tail or deep wingspan
 // does not shrink the whole fighter. Keep the full silhouette inside its lane.
 function battleScale(model,yaw,camera){
@@ -111,17 +32,17 @@ function disposeModel(model){
  textures.forEach(t=>{t.dispose();t.source?.data?.close?.()});materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());
 }
 export function createStadium(field){
- const canvas=field.querySelector('.world'),renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'low-power'});
+ const canvas=field.querySelector('.world'),renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'low-power'});
  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.65));renderer.outputColorSpace=T.SRGBColorSpace;
  renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
- const scene=new T.Scene();scene.background=new T.Color(0xb5dbd6);scene.fog=new T.Fog(0xb5dbd6,19,35);
+ const scene=new T.Scene();renderer.setClearColor(0x000000,0);
  const camera=new T.OrthographicCamera(-5,5,3,-3,.05,90);
  camera.position.set(0,7.1,13.8);camera.lookAt(0,1.12,0);camera.updateMatrixWorld();
  scene.add(new T.HemisphereLight(0xfff6e4,0xb9ccdc,1.45));
  const sun=new T.DirectionalLight(0xfff3de,1.7);sun.position.set(-4,8,7);sun.castShadow=true;sun.shadow.mapSize.set(768,768);
  Object.assign(sun.shadow.camera,{left:-6,right:6,top:5,bottom:-5,near:.5,far:22});sun.shadow.normalBias=.025;sun.shadow.bias=-.00035;scene.add(sun);
  const rim=new T.DirectionalLight(0xe0eeff,.50);rim.position.set(5,4,-3);scene.add(rim);
- const pads=standardPads.map(p=>p.clone()),marks=pads.map(()=>new T.Group());paintArena(scene,marks);marks.forEach((mark,i)=>mark.position.copy(pads[i]));
+ const pads=standardPads.map(p=>p.clone());
  const loader=new GLTFLoader(),draco=new DRACOLoader();draco.setDecoderPath('/vendor/three/examples/jsm/libs/draco/gltf/');draco.setWorkerLimit(1);loader.setDRACOLoader(draco);
  let factors=[1,1],rate=1;
  const slots=[null,null],ids=[0,0],requests=[null,null],jobs=[null,null],shadowMap=document.createElement('canvas');
@@ -136,7 +57,14 @@ export function createStadium(field){
   const w=field.clientWidth,h=field.clientHeight;if(!w||!h)return;
   renderer.setSize(w,h,false);
   const half=Math.max(2.6,4.85*h/w);
-  camera.left=-half*w/h;camera.right=-camera.left;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();updateGround();
+  camera.left=-half*w/h;camera.right=-camera.left;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();
+  // Project the illustrated platforms onto the model's ground plane at any aspect ratio.
+  const ground=new T.Plane(new T.Vector3(0,1,0),-.26),ray=new T.Raycaster();
+  [[.28,.81],[.73,.55]].forEach(([x,y],i)=>{
+   ray.setFromCamera(new T.Vector2(x*2-1,1-y*2),camera);
+   ray.ray.intersectPlane(ground,pads[i]);
+  });
+  updateGround();
  }
  const sizeObserver=new ResizeObserver(resize);sizeObserver.observe(field);resize();
  function projected(pos){const v=pos.clone().project(camera);return [(v.x+1)/2,(1-v.y)/2]}

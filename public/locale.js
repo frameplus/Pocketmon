@@ -26,12 +26,17 @@ const Locale = (() => {
   const button = document.getElementById('language');
   button.textContent = t('English','한국어');
   button.lang = t('en','ko');
-  button.onclick = () => {
-    const next = t('en','ko');
+  function switchLanguage(next) {
+    if(next===lang)return;
     const url = new URL(location.href);
     url.searchParams.set('lang',next);
     try { localStorage.setItem('arena.language',next); } catch {}
     location.assign(url);
-  };
+  }
+  button.onclick=()=>switchLanguage(t('en','ko'));
+  for(const choice of document.querySelectorAll('[data-language]')){
+    choice.setAttribute('aria-pressed',String(choice.dataset.language===lang));
+    choice.onclick=()=>switchLanguage(choice.dataset.language);
+  }
   return { en, lang, t, regions, region, types, stats };
 })();

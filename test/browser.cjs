@@ -23,6 +23,9 @@ try{
   assert.ok(await el('#language').isHidden());assert.equal(await el('#prediction').count(),0);
   assert.deepEqual(await slot(0).locator('.stats b').allTextContents(),['110','75','60','70','70','110']);
   assert.match(await slot(0).locator('.ability').innerText(),/정전기/);
+  assert.equal(await el('.compare-row').count(),6);
+  assert.deepEqual(await el('.sheet-heading').first().locator('small b').allTextContents(),['495','709']);
+  assert.equal(await el('.match-move').filter({hasText:'10만볼트'}).locator('strong').innerText(),'×2');
   for(const i of [0,1]){
    assert.ok(await slot(i).locator('.badge').count()>0);assert.ok(await slot(i).locator('.move').count()>=3);
    const card=await slot(i).locator('.card').boundingBox(),input=await slot(i).locator('.pick-query').boundingBox(),draw=await slot(i).locator('.draw').boundingBox();
@@ -41,8 +44,11 @@ try{
   await el('#skip').click();await el('#result h2').waitFor();await shot('result');
   await el('#rematch').click();await el('#skip').click();await el('#result h2').waitFor();await el('#different').click();
   await menu('history');assert.equal(await el('.record').count(),2);assert.equal(await el('.record small').first().innerText(),'오늘');
+  assert.equal(await el('.record-summary div').count(),3);
   await el('.record button').first().click();await el('#exit').click();await menu('history');assert.equal(await el('.record').count(),2);
   await menu('battle');await el('#settings').click();await el('#trainer0').fill('번개 팀');await el('#trainer1').fill('별빛 팀');
+  await el('[name=ground][value=snow]').check();
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('arena.ground'))),'snow');
   await el('#newpin').fill('1357');await el('#setpin button').click();await page.waitForFunction(()=>document.querySelector('#pinmsg').textContent.includes('저장'));
   await el('#close').click();assert.match(await el('#slot1 .serial').innerText(),/별빛 팀/);
   for(const i of [0,1]){const old=await name(i),other=await name(1-i);await slot(i).locator('.draw').click();assert.notEqual(await name(i),old);assert.equal(await name(1-i),other)}
