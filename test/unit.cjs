@@ -142,3 +142,11 @@ test('big-hit lessons use the defender’s full HP and only actual direct damage
  const neutral={...hit,effect:'',matchup:{...hit.matchup,factor:1}};
  assert.match(G.impactLesson(neutral,pair,d,false),/위력이 90/);
 });
+
+test('buddy reads level-50 speed from the selected cards in both languages',async()=>{
+ const answer=require('../friend')(d);
+ for(const [lang,text] of [['ko','피카츄 스피드'],['en','How fast is Pikachu?']]){
+  const result=await answer({lang,text,pair:[25,6],focus:25},false);
+  assert.equal(result.intent,'speed');assert.match(result.reply,/110/);assert.match(result.reply,/120/);
+ }
+});
