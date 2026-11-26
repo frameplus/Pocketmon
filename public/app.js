@@ -4,7 +4,7 @@
  const d=await fetch('/dex.json').then(r=>{if(!r.ok)throw Error();return r.json()}),idx=G.index(d),by=new Map(d.pokemon.map(p=>[p.id,p]));
  const ranks=G.powerRanks(d.pokemon);
  const teamReplay=window.parent!==window&&new URLSearchParams(location.search).has('teamReplay');
- document.querySelector('.team-entry').href='/teams.html?lang='+lang;
+ for(const link of document.querySelectorAll('#chooser a[href="/teams.html"]'))link.href='/teams.html?lang='+lang;
  let teamRound=0;
  const tellTeam=kind=>window.parent.postMessage({kind,round:teamRound},location.origin);
  if(en){for(const p of d.pokemon)p.name=p.en;for(const m of Object.values(d.moves))m.name=m.en}

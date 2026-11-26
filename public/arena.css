@@ -76,7 +76,8 @@ body:has(#battle:not([hidden]) #chooser:not([hidden])){padding-bottom:calc(var(-
 .match-move i{background:color-mix(in srgb,var(--element) 25%,white);flex-shrink:0}.match-move span{flex:1;min-width:0}
 .match-move b,.match-move small{display:block;overflow-wrap:anywhere;font-size:12px}.match-move small{font-size:10px;color:var(--muted)}
 .match-move strong{font:700 12px var(--numbers);color:var(--muted)}.match-move .strong{color:#925c00;background:#fff2b2;border-radius:4px;padding:1px 3px}
-#chooser .launch{position:fixed;inset:auto 0 calc(76px + env(safe-area-inset-bottom));margin:auto;width:min(calc(100% - 24px),520px);padding:0;border:0;background:none}
+#chooser .launch{position:fixed;inset:auto 0 calc(76px + env(safe-area-inset-bottom));margin:auto;width:min(calc(100% - 24px),520px);padding:0;border:0;background:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#chooser .team-launch{display:grid;place-items:center;min-height:54px;border-radius:16px;box-shadow:0 4px #183976;background:var(--blue);color:white;text-decoration:none;font:400 clamp(16px,2vw,22px)/1.2 var(--display)}
 #start,.mainbtn{background:var(--red);color:white;border:0;border-radius:16px;box-shadow:0 4px #8e1616}
 #chooser #start{width:100%;min-height:54px;letter-spacing:.02em;font-size:22px}
 /* Searchable list, trainer conversation, history and settings. */
