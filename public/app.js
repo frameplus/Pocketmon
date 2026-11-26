@@ -12,7 +12,8 @@
  const savedTrainers=get('trainers',[]);
  const trainers=[0,1].map(i=>typeof savedTrainers?.[i]==='string'?savedTrainers[i].slice(0,24):'');
  let powerOrder=false;
- const badges=p=>p.types.map(t=>`<span class="badge">${G.icons[t]} ${types[t]}</span>`).join('');
+ const badges=p=>p.types.map(t=>`<span class="badge" data-type-id="${t}" style="--element:${G.colors[t]}"><i aria-hidden="true">${G.icons[t]}</i>${types[t]}</span>`).join('');
+ ArenaUI.setGround(get('ground','stadium'));
  const img=(p,extra='')=>`<img src="/art/${p.id}" alt="${esc(p.name)}" ${extra}>`;
  let stadium,worldBoot;
  const combat=createCombat($('battlefield'),()=>stadium);
@@ -137,6 +138,7 @@
   $('celebration').hidden=true;$('battlefield').dataset.scene='ready';
   try{sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}
   $('start').disabled=false;slot(0);slot(1);actors();phase('chooser');
+  $('comparison').innerHTML=ArenaUI.comparison(pair,d,esc);
   stadium?.select(pair);
  }
  async function matchRequest(route,method='GET'){
@@ -192,6 +194,8 @@
  async function battle(){
   if(busy)return;questionEpoch++;if(rec)cancelVoice();unlockSound();say(t('대결 시작!','Let’s battle!'));const id=++epoch;busy=true;$('celebration').hidden=true;$('start').disabled=true;
   phase('arena');$('exit').focus({preventScroll:true});
+  $('battleJournal').replaceChildren();ArenaUI.progress(0);
+  ArenaUI.journal(pair.map(p=>p.name).join(' vs. '));
   playback=playbackClock();stadium?.setRate(1);$('speed').setAttribute('aria-pressed','false');
   actors();updateHP(pair.map(G.hp),pair.map(G.hp));
   let result;
@@ -207,24 +211,26 @@
   for(const e of highlights){
    if(id!==epoch)return;if(playback.stopped)break;
    const m=d.moves[e.move],description=G.describe(e,pair,d,en);
+   ArenaUI.progress(e.round);
    $('round').textContent=(long?t('주요 장면 · ','Highlights · '):'')+(en?'Turn '+e.round:e.round+'턴');
    if(e.kind==='move'&&m){
     $('log').textContent=en?`${pair[e.i].name} used ${m.name}!`:`${pair[e.i].name}의 ${m.name}!`;
     await combat.play(e,m,{typeName:types[e.matchup?.type||m.type],rate:()=>playback.rate,impact(){
      if(id===epoch){
-      updateHP(e.hp,e.max);$('log').textContent=description;
+      updateHP(e.hp,e.max);$('log').textContent=description;ArenaUI.journal(description);
       if(e.damage>0&&!mute&&!rec&&readingState!=='playing'&&readingState!=='loading')narrator.impactSound(e.matchup?.type||m.type);
      }
     }});
    }else{
-    $('log').textContent=description;updateHP(e.hp,e.max);await playback.wait(500);
+    $('log').textContent=description;ArenaUI.journal(description);updateHP(e.hp,e.max);await playback.wait(500);
    }
   }
   if(id!==epoch)return;
   const last=events.at(-1);if(last)updateHP(last.hp,last.max);
   stadium?.finish(result.winner);
+  ArenaUI.progress(0,true);
   const w=result.winner,why=roundReason(result);
-  history=[{ids:pair.map(p=>p.id),w,time:Date.now()},...history].slice(0,24);put('history',history);
+  history=[{ids:pair.map(p=>p.id),w,time:Date.now(),round:last?.round},...history].slice(0,24);put('history',history);
   const banner=$('celebration');
   banner.dataset.side=w<0?'tie':String(w);
   $('victory-word').textContent=w<0?'DRAW!':'VICTORY!';
@@ -291,7 +297,7 @@
    else if(!$('dexquery').value.trim())matches.sort((a,b)=>a.dex-b.dex||a.id-b.id);
    $('rankRule').hidden=!powerOrder;$('dexOrder').setAttribute('aria-pressed',String(!powerOrder));$('powerOrder').setAttribute('aria-pressed',String(powerOrder));
    $('found').textContent=matches.length.toLocaleString()+t('장',' cards');
-   $('catalog').innerHTML=matches.slice(0,pageSize).map(p=>`<button data-card="${p.id}">${powerOrder?`<span class="place">#${ranks.get(p.id)}</span>`:''}${img(p,'loading="lazy"')}<small>No. ${p.dex} · ${esc(region(p.region))}</small><b>${esc(p.name)}</b><small>${p.types.map(i=>types[i]).join(' · ')}</small>${powerOrder?`<strong class="power">${t('파워','Power')} ${G.total(p)}</strong>`:''}</button>`).join('')||t('조건에 맞는 포켓몬이 없어. 필터를 바꿔 봐!','No matches. Try a different filter.');
+   $('catalog').innerHTML=matches.slice(0,pageSize).map(p=>`<button data-card="${p.id}">${powerOrder?`<span class="place">#${ranks.get(p.id)}</span>`:''}${img(p,'loading="lazy"')}<small>No.${String(p.dex).padStart(4,'0')} · ${esc(region(p.region))}</small><b>${esc(p.name)}</b><small>${badges(p)}</small><strong class="power">${G.total(p)}<small>${t('종족값 합계','Base total')}</small></strong></button>`).join('')||t('조건에 맞는 포켓몬이 없어. 필터를 바꿔 봐!','No matches. Try a different filter.');
    $('more').hidden=pageSize>=matches.length
  }
  for(const id of ['kindFilter','regionFilter'])$(id).onchange=()=>{pageSize=36;catalog()};
@@ -299,7 +305,17 @@
  const dateFormat=new Intl.DateTimeFormat(en?'en-CA':'sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
  function recordDate(time){if(!Number.isFinite(time))return '';const date=dateFormat.format(time),now=Date.now();return date===dateFormat.format(now)?t('오늘','Today'):date===dateFormat.format(now-86400000)?t('어제','Yesterday'):date}
  function records(){
-  $('records').replaceChildren();for(const h of history){if(!h||!Array.isArray(h.ids)||h.ids.length!==2||!h.ids.every(i=>by.has(i))||![-1,0,1].includes(h.w))continue;const pair=h.ids.map(i=>by.get(i)),el=document.createElement('article');el.className='record';el.innerHTML=`${img(pair[h.w]||pair[0])}<div><small>${esc(recordDate(h.time))}</small><b>${h.w<0?t("무승부","Tie"):esc(pair[h.w].name)+" "+t("승리","wins")}</b><p>${pair.map(x=>esc(x.name)).join(t(' 대 '," vs. "))}</p></div><button>${t("다시 대결","Rematch")}</button>`;el.lastElementChild.onclick=()=>{usePair(h.ids);go('battle');battle()};$('records').append(el)}if(!$('records').children.length)$('records').textContent=t('첫 대결을 마치면 여기에 승자가 나타나!',"Finish a battle to see the winner here!")
+  const valid=history.filter(h=>Array.isArray(h?.ids)&&h.ids.length===2&&h.ids.every(id=>by.has(id))&&[-1,0,1].includes(h.w));
+  $('recordSummary').innerHTML=ArenaUI.recordSummary(valid);
+  $('records').replaceChildren();
+  for(const h of valid){
+   const players=h.ids.map(id=>by.get(id)),el=document.createElement('article');
+   el.className='record';el.dataset.side=h.w;
+   const rounds=Number.isInteger(h.round)?' · '+t(h.round+'턴',h.round+' turns'):'';
+   el.innerHTML=`${img(players[h.w]||players[0])}<div><small>${esc(recordDate(h.time))}</small><b>${players.map(p=>esc(p.name)).join(' vs. ')}</b><p><strong>${h.w===0?'WIN':h.w===1?'LOSE':'DRAW'}</strong>${rounds}</p></div><button>${t('다시 대결','Rematch')}</button>`;
+   el.lastElementChild.onclick=()=>{usePair(h.ids);go('battle');battle()};$('records').append(el);
+  }
+  if(!valid.length)$('records').textContent=t('첫 대결을 마치면 여기에 승자가 나타나!','Finish a battle to see the winner here!');
  }
  function usePair(ids){pair=ids.map(i=>by.get(i));refresh()}
  function go(name){
@@ -310,7 +326,11 @@
   if(location.hash!=='#'+name)window.history.replaceState(null,'','#'+name);
   if(name==='dex')catalog();if(name==='history')records()
  }
- function bubble(text,you){let p=document.createElement('p');p.className='bubble'+(you?' you':'');p.textContent=text;$('talk').append(p);while($('talk').children.length>10)$('talk').firstElementChild.remove()}
+ function bubble(text,you){
+  const log=$('talk'),p=document.createElement('p');p.className='bubble'+(you?' you':'');p.textContent=text;log.append(p);
+  while(log.children.length>10)log.firstElementChild.remove();
+  log.scrollTop=log.scrollHeight;
+ }
  async function ask(text,askedSide=target){
   unlockSound();text=text.trim().slice(0,250);if(!text)return;const seq=++questionEpoch,prior=lastIntent,drawSide=activePage==='battle'?askedSide:undefined;
   bubble(text,true);$('message').value='';
@@ -329,6 +349,7 @@
   if(lock&&!unlocked){openModal(en?'<h2>Parent settings</h2><p>Enter the parent PIN for this device.</p><form id="unlock"><input id="pin" type="password" inputmode="numeric" maxlength="8" required aria-label="Parent PIN"><button>Unlock</button></form><p id="pinmsg"></p>':'<h2>부모 설정</h2><p>이 기기의 부모 비밀번호를 입력해 주세요.</p><form id="unlock"><input id="pin" type="password" inputmode="numeric" maxlength="8" required aria-label="부모 비밀번호"><button>열기</button></form><p id="pinmsg"></p>');$('unlock').onsubmit=async e=>{e.preventDefault();if(await digest($('pin').value,lock.salt)===lock.hash)settings(true);else $('pinmsg').textContent=t('비밀번호가 달라요.',"That PIN doesn’t match.")};return}
   openModal(en?`<h2>Parent settings</h2><p>History and preferences stay on this device. The game does not save conversations or audio recordings. Your browser handles speech recognition.</p><button id="sound">Turn speech ${mute?'on':'off'}</button><button id="clearhistory">Clear battle history</button><form id="setpin"><input id="newpin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required placeholder="4 to 8 digits" aria-label="New parent PIN"><button>${lock?'Change':'Set'} PIN</button></form><p id="pinmsg"></p>`:`<h2>부모 설정</h2><p>기록과 설정은 이 기기에 보관합니다. 대화와 마이크 녹음은 게임 서버에 저장하지 않습니다. 음성 인식은 브라우저의 음성 서비스를 사용합니다.</p><button id="sound">음성 읽기 ${mute?'켜기':'끄기'}</button><button id="clearhistory">대결 기록 지우기</button><form id="setpin"><input id="newpin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required placeholder="숫자 4~8자리" aria-label="새 부모 비밀번호"><button>비밀번호 ${lock?'변경':'설정'}</button></form><p id="pinmsg"></p>`);
   $('parentExtras').hidden=false;
+  ArenaUI.backgroundPicker($('modalbody'),pair,value=>put('ground',value));
   trainers.forEach((value,i)=>{const input=$('trainer'+i);input.value=value;input.oninput=()=>{trainers[i]=input.value;put('trainers',trainers);slot(i)}});
   $('sound').onclick=()=>{mute=!mute;put('mute',mute);narrator.stop();if(!mute){unlockSound();say(t('음성 읽기를 켰어요.','Speech is on.'))}settings(true)};
   $('clearhistory').onclick=()=>{history=[];put('history',history);records();$('pinmsg').textContent=t('이 기기의 기록을 지웠어요.',"History cleared on this device.")};
@@ -336,11 +357,13 @@
  }
  $('modal').addEventListener('close',()=>{if(rec)cancelVoice();});
  $('settings').onclick=()=>settings();$('close').onclick=()=>$('modal').close();$('start').onclick=battle;
+ $('drawBoth').onclick=()=>drawCards();
  $('dexquery').oninput=()=>{pageSize=36;catalog()};$('more').onclick=()=>{pageSize+=36;catalog()};
  $('catalog').onclick=e=>{const btn=e.target.closest('[data-card]');if(!btn)return;const p=by.get(+btn.dataset.card);if(dexSide!==null){const side=dexSide;go('battle');choose(side,p);return}openModal(card(p,t('전국도감',"National Dex"))+`<button id="mine">${t('내 카드로','Pick for me')}</button><button id="theirs">${t('상대 카드로','Pick as opponent')}</button>`);for(let [n,i] of [['mine',0],['theirs',1]])$(n).onclick=()=>{$('modal').close();choose(i,p);go('battle')}};
  $('chat').onsubmit=e=>{e.preventDefault();ask($('message').value)};$('examples').onclick=e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent)};
  document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=()=>mic());document.querySelectorAll('header a[href^="#"]').forEach(a=>a.onclick=e=>{e.preventDefault();if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);go(a.hash.slice(1))});window.onhashchange=()=>go(location.hash.slice(1));
  buildField($('battlefield'));
+ document.querySelector('.battle-journal').open=matchMedia('(min-height:760px)').matches;
  const view=$('battlefield');
  const initWorld=()=>worldBoot??=import('/stadium.js').then(({createStadium})=>{
    stadium=createStadium(view);stadium.select(pair);return stadium;
