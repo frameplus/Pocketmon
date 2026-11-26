@@ -19,7 +19,7 @@ module.exports=async function testNarrationWords(browser,url){
       Object.defineProperty(window,'SpeechSynthesisUtterance',{value:class{constructor(text){this.text=text}}});
     });
     await page.goto(url);
-    const searches=page.getByPlaceholder('검색',{exact:true});
+    const searches=page.locator('#chooser').getByPlaceholder('검색',{exact:true});
     await searches.first().waitFor();
     assert.equal(await searches.count(),2);
     await searches.nth(1).fill('메가리자몽X');
