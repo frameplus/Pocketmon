@@ -20,7 +20,8 @@
  ArenaUI.setGround(get('ground','stadium'));
  const img=(p,extra='')=>`<img src="/art/${p.id}" alt="${esc(p.name)}" ${extra}>`;
  let stadium,worldBoot;
- const combat=createCombat($('battlefield'),()=>stadium);
+ const elements=createElementalStage($('battlefield'),()=>stadium);
+ const combat=createCombat($('battlefield'),()=>stadium,elements);
  let listeningSide=null;
  let readingState='idle';
  const narrator=createNarrator(lang,state=>{
@@ -134,7 +135,7 @@
  function actors(){
   const sizes=G.fieldSizes(pair);
   sizes.forEach((size,i)=>$('battlefield').style.setProperty(i?'--far-size':'--near-size',size));
-  $('actors').innerHTML=pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}" style="--fighter-size:${sizes[i]}">${fighter(p,i)}</div>`).join('');
+  $('actors').innerHTML=pair.map((p,i)=>`<div class="actor ${i?'right':'left'}" id="a${i}" style="--fighter-size:${sizes[i]}"><div class="flight-rig">${fighter(p,i)}</div></div>`).join('');
   $('scoreboard').innerHTML=pair.map((p,i)=>`<div class="hud"><div class="trainer-tag">${esc(trainers[i])}</div><b>${esc(p.name)}</b><small class="hud-level">Lv.50</small><span id="hp${i}">${G.hp(p)}/${G.hp(p)}</span><div class="track"><i id="bar${i}" style="width:100%"></i></div></div>`).join('');
  }
  function phase(name){
@@ -144,7 +145,7 @@
  }
  function refresh(){
   questionEpoch++;suggested=null;if(rec)cancelVoice();
-  epoch++;playback?.stop();combat.clear();narrator.stop();busy=false;
+  epoch++;playback?.stop();combat.clear();elements.stop();narrator.stop();busy=false;
   $('celebration').hidden=true;$('battlefield').dataset.scene='ready';
   try{if(!teamReplay)sessionStorage.setItem('arena.pair',JSON.stringify(pair.map(p=>p.id)))}catch{}
   $('start').disabled=false;slot(0);slot(1);actors();phase('chooser');
@@ -186,7 +187,7 @@
   if(busy&&playback?.rate===2)for(const anim of e.target.getAnimations())if(anim instanceof CSSAnimation)anim.updatePlaybackRate(2);
  });
  $('speed').onclick=()=>{if(busy){const rate=playback.toggle();$('speed').setAttribute('aria-pressed',String(rate===2));stadium?.setRate(rate)}};
- $('skip').onclick=()=>{if(busy){playback.stop();combat.clear()}};
+ $('skip').onclick=()=>{if(busy){playback.stop();combat.clear();elements.stop()}};
  $('exit').onclick=()=>{refresh();if(teamReplay)tellTeam('team-exit');else $('start').focus({preventScroll:true})};
  async function entrance(id){
   const field=$('battlefield'),still=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -216,6 +217,7 @@
   }
   if(id!==epoch)return;
   updateHP(result.initial,result.initial);
+  if(!playback.stopped)elements.start(pair,()=>playback.rate);
   const events=result.events,long=events.length>22;
   const highlights=long?events.filter((e,k)=>e.finisher||k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
   for(const e of highlights){
@@ -237,7 +239,7 @@
   }
   if(id!==epoch)return;
   const last=events.at(-1);if(last)updateHP(last.hp,last.max);
-  stadium?.finish(result.winner);
+  elements.land();stadium?.finish(result.winner);
   ArenaUI.progress(0,true);
   const w=result.winner,why=roundReason(result);
   if(!teamReplay){history=[{ids:pair.map(p=>p.id),w,time:Date.now(),round:last?.round},...history].slice(0,24);put('history',history)}

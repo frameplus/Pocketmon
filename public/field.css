@@ -22,6 +22,8 @@
 #battlefield .right .hud { right:2%; top:2%; border-left-color:#df5057; }
 #battlefield .hud .track { height:6px; }
 .entrance-props { pointer-events:none; }
+#battlefield .flight-rig{position:absolute;inset:0;transform-origin:var(--center) var(--foot);pointer-events:none}
+#battlefield .element-fx{position:absolute;inset:0;width:100%;height:100%;z-index:4;pointer-events:none}
 .throw-rig { display:none; position:absolute; inset:0; pointer-events:none; }
 .throw-rig.near { z-index:4; --origin-x:10%; --origin-y:68%; --apex-x:19%; --apex-y:29%; --mark-x:var(--near-x); --mark-y:calc(var(--near-feet) - 18.3cqw * var(--near-size,1)); --ball:8cqw; --pose:30cqw; --delay:0s; }
 .throw-rig.far { z-index:2; --origin-x:91%; --origin-y:44%; --apex-x:84%; --apex-y:24%; --mark-x:var(--far-x); --mark-y:calc(var(--far-feet) - 18.3cqw * var(--far-size,1)); --ball:6cqw; --pose:19cqw; --delay:.12s; }
