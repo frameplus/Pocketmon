@@ -1,7 +1,7 @@
 'use strict';
 
 // Draw in field coordinates so a technique travels between the same two marks on any screen.
-function createCombat(field,world){
+function createCombat(field,world,elements){
  const canvas=field.querySelector('.technique-fx'),ctx=canvas.getContext('2d');
  const label=field.querySelector('.move-call'),points=field.querySelector('.hit-points');
  const radiant={3:'air',10:'flame',11:'water',13:'lightning',12:'leaves',15:'ice',14:'pulse',16:'pulse',8:'pulse',18:'pulse'};
@@ -27,15 +27,19 @@ function createCombat(field,world){
   const dpr=Math.min(2,window.devicePixelRatio||1);
   canvas.width=Math.round(fieldRect.width*dpr);canvas.height=Math.round(fieldRect.height*dpr);
   const imgs=[e.i,e.j].map(i=>document.querySelector('#a'+i+' img'));
-  const anchors=field.dataset.world==='on'?world()?.anchors():null;
-  const [src,dest]=[e.i,e.j].map((side,k)=>{
+  function marks(){
+   const anchors=field.dataset.world==='on'?world()?.anchors(true):null;
+   const pair=[e.i,e.j].map((side,k)=>{
    if(anchors&&field.dataset['mesh'+side])return [anchors[side][0]*width,anchors[side][1]*height];
    const box=imgs[k].getBoundingClientRect();
    return [(box.left+box.width*.5-fieldRect.left)*width/fieldRect.width,
     (box.bottom-box.height*.5-fieldRect.top)*height/fieldRect.height];
   });
-  if(miss){dest[0]+=e.i?-65:65;dest[1]-=height*.14}
-  const dx=dest[0]-src[0],dy=dest[1]-src[1],dist=Math.hypot(dx,dy);
+   if(miss){pair[1][0]+=e.i?-65:65;pair[1][1]-=height*.14}
+   return pair;
+  }
+  let [src,dest]=marks();
+  let dx=dest[0]-src[0],dy=dest[1]-src[1],dist=Math.hypot(dx,dy);
   const special=Boolean(e.finisher&&connects),direction=Math.sign(dx),motion=[];
   const travel=['rush','slash','tail'].includes(style)&&!deflected;
   const duration=reduced?460:travel?900:1040;
@@ -60,7 +64,7 @@ function createCombat(field,world){
     anim.pause();anim.currentTime=0;motion.push({anim,start});
    }
   }
-  const pose={i:e.i,connects,miss,travel,duration,style,color,special,t:0};world()?.move(pose);
+  const pose={i:e.i,connects,miss,travel,duration,style,color,special,t:0};world()?.move(pose);elements.move(pose);
   const pixelX=dx*fieldRect.width/width,pixelY=dy*fieldRect.width/width;
   const windup=direction*-9;
   animate(imgs[0],[
@@ -167,7 +171,7 @@ function createCombat(field,world){
   return new Promise(resolve=>{
    let frame=0,landed=false,previousTime,elapsed=0;
    function done(){
-    world()?.move(null);cancelAnimationFrame(frame);motion.forEach(({anim})=>anim.cancel());label.hidden=true;points.hidden=true;canvas.hidden=true;
+    world()?.move(null);elements.move(null);cancelAnimationFrame(frame);motion.forEach(({anim})=>anim.cancel());label.hidden=true;points.hidden=true;canvas.hidden=true;
     cutin.hidden=true;delete field.dataset.finisher;delete field.dataset.phase;delete field.dataset.technique;active=null;resolve();
    }
    active=done;
@@ -182,6 +186,10 @@ function createCombat(field,world){
      if(elapsed>=intro+90)cutin.hidden=true;
     }
     pose.t=t;
+    if(!reduced){
+     const [origin,target]=marks();dest=target;if(!travel&&t<=arrival)src=origin;
+     dx=dest[0]-src[0];dy=dest[1]-src[1];dist=Math.hypot(dx,dy);
+    }
     if(t>=arrival&&!landed){
      landed=true;field.dataset.phase='impact';impact();
      if(connects){
