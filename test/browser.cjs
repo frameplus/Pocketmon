@@ -8,6 +8,7 @@ try{
  await require('./narration-words.cjs')(browser,url);
  await require('./dex-layout.cjs')(browser,url);
  await require('./result-home.cjs')(browser,url);
+ await require('./team-rooms.cjs')(browser,url);
  await require('./stadium.cjs')(browser,url);
  await require('./transitions.cjs')(browser,url);
  await require('./entrance.cjs')(browser,url);

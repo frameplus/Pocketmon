@@ -32,6 +32,8 @@ body:has(#battle:not([hidden]) #chooser:not([hidden])){padding-bottom:calc(var(-
 .match-label,.pair{max-width:680px;margin:auto}
 .match-label{display:flex;align-items:center;justify-content:space-between;color:white;margin-bottom:17px}
 .match-label b{letter-spacing:1px}.match-label span{background:white;color:var(--ink);font-size:11px;font-weight:800;padding:5px 12px;border-radius:30px}
+.team-entry{display:inline-flex;align-items:center;min-height:30px;padding:4px 12px;border-radius:20px;background:white;color:var(--ink);font-size:12px;font-weight:800;text-decoration:none}
+.battle-modes{display:flex;align-items:center;gap:5px}.battle-modes small{font-weight:800}
 #chooser .pair{width:100%;margin:0 auto;gap:18px}
 .pair .card{text-align:left;border:0;border-radius:18px;padding:5px;background:linear-gradient(130deg,#fff,#dbe8f8 38%,#fff 56%,#ece5fc 80%,white);box-shadow:0 8px 16px #13203f45;transform:rotate(-2deg)}
 #slot1 .card{transform:rotate(2deg)}

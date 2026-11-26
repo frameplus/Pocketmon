@@ -6,6 +6,7 @@ const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'t
 const visitDir=process.env.RAILWAY_VOLUME_MOUNT_PATH || (process.env.RAILWAY_ENVIRONMENT_ID?'/data':require('node:os').tmpdir());
 fs.mkdirSync(visitDir,{recursive:true});
 const visitors=require('./visitors.js').openCounter(path.join(visitDir,'pocketmon-visits.sqlite'));
+const teamBattles=require('./team-battles.js').openTeamBattles(path.join(visitDir,'pocketmon-teams.sqlite'),by,simulator);
 let model=null,active=0;
 if(process.env.FRIEND_BINARY&&process.env.FRIEND_MODEL){
  model=spawn(process.env.FRIEND_BINARY,['-m',process.env.FRIEND_MODEL,'--host','127.0.0.1','--port','8089','-c','1024','-t','2','-np','1','--log-disable'],{stdio:'ignore'});
@@ -15,6 +16,7 @@ const server=http.createServer(async(req,res)=>{
  const send=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body))};
  try{
   const p=new URL(req.url,'http://localhost').pathname;
+  if(p==='/api/team-battle'||p.startsWith('/api/team-rooms/'))return await teamBattles(req,res,p,send);
   if(p==='/api/narration')return await require('./narration.js')(req,res);
   const match=/^\/api\/(forecast|battle)\/(\d+)\/(\d+)$/.exec(p);
   if(match){
