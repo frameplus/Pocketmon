@@ -24,7 +24,7 @@ module.exports=function makeFriend(d,forecast){
    const out={focus:p.id,intent:kind,model,action:null},best=p.battleStats.indexOf(Math.max(...p.battleStats)),move=d.moves[p.moves[0]];
    switch(kind){
      case 'counter':{const scores=[];for(const id of [6,9,94,130,150,248,282,384,445,483,635,717,888]){if(id!==p.id)scores.push([by.get(id),(await forecast([id,p.id],100)).wins[0]])}scores.sort((a,b)=>b[1]-a[1]);let [q,n]=scores[0];out.reply=en?`Try ${q.en}! It won ${n} out of 100 practice battles against ${p.en}. Want to try them together?`:`비교한 친구 중에는 ${q.name}이 있어! ${p.name}와 100번 연습 대결해서 ${n}번 이겼어. 둘을 붙여 볼까?`;out.suggest=[q.id,p.id];break}
-     case 'moves':out.reply=`${p.name}의 기술은 ${p.moves.map(i=>d.moves[i].name).join(', ')}야! ${move.name}은 ${G.types[move.type]} 기술이야.`;break;
+     case 'moves':out.reply=`${p.name}의 기술을 알려 줄게! ${p.moves.map(i=>d.moves[i].name).join(', ')}. 첫 번째는 ${G.types[move.type]} 기술이야.`;break;
      case 'type':{let weak=G.types.filter((v,t)=>t&&G.effect(t,p,d)>1);out.reply=`${p.name}의 속성은 ${p.types.map(t=>G.types[t]).join('·')}야. ${weak.length?weak.join(', ')+' 기술에 약해.':'약점이 적은 친구야!'}`;break}
      case 'speed':out.reply=`${p.name}의 레벨 50 스피드는 ${p.battleStats[5]}, ${op.name}의 스피드는 ${op.battleStats[5]}야. 같은 우선도의 기술이면 ${p.battleStats[5]===op.battleStats[5]?'추첨해서 먼저 움직여.':(p.battleStats[5]>op.battleStats[5]?p:op).name+'이 먼저 움직여!'}`;break;
      case 'battle':out.action={kind:'battle',ids:named.length?[p.id,op.id]:input.pair};out.reply=out.action.ids.map(id=>by.get(id).name).join(' 대 ')+'! 배틀 필드로 가자!';break;
@@ -32,7 +32,7 @@ module.exports=function makeFriend(d,forecast){
      case 'select':out.action={kind:'select',id:p.id};out.reply=p.name+' 카드를 골랐어!';break;
      case 'greet':out.reply='반가워! 오늘은 어떤 포켓몬과 놀아 볼까?';break;
      case 'other':out.reply='나는 포켓몬 이야기를 좋아해! 어떤 친구가 궁금해?';break;
-     default:out.reply=`${p.name}은 ${G.statNames[best]} 능력치가 ${p.battleStats[best]}로 가장 높아. ${move.name} 같은 기술도 쓸 수 있어. 누구랑 만나 볼까?`
+     default:out.reply=`${p.name} 카드에서 가장 높은 능력치는 ${G.statNames[best]}! 수치는 ${p.battleStats[best]}. ${move.name} 같은 기술도 쓸 수 있어. 누구랑 만나 볼까?`
    }
    if(en){
      switch(kind){
