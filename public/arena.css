@@ -125,10 +125,16 @@ dialog{border:0;border-radius:23px;color:var(--ink);padding:20px}.grounds{border
 #turns{display:flex;gap:4px;list-style:none;margin:8px 0;padding:0}#turns li{flex:1;background:#ffffff20;color:#dce5f7;border-radius:20px;padding:4px;text-align:center;font-size:11px}#turns [aria-current]{background:white;color:var(--ink);font-weight:850}
 .battle-journal{background:#1b2b52;border-radius:12px;padding:5px 12px}.battle-journal summary{font-size:13px}.battle-journal ol{padding-left:22px;font-size:12px;max-height:8dvh;overflow:auto;margin:4px 0}
 @media(min-width:800px){
- #chooser{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;padding:20px 16px;align-items:start}
+ #chooser{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;padding:20px 16px;align-items:stretch}
  .match-hero{border-radius:22px;padding:18px 20px}.compare-sheet{border-radius:22px;margin:0;padding:24px}
  .pair .card .art{height:clamp(118px,13vw,184px)}
- #chooser .launch{position:static;width:100%;margin:18px auto 0}
+ #chooser .match-hero,#chooser .compare-sheet{display:flex;flex-direction:column}
+ #chooser .match-label{width:100%}
+ #chooser .pair .card{transform:none}
+ #chooser .match-hero,#chooser .compare-sheet{padding-bottom:22px}
+ #chooser .shuffle-both{align-self:center;margin-top:auto}
+ #chooser .pair{margin-bottom:13px}
+ #chooser .launch{position:static;width:100%;margin:auto 0 0;padding-top:18px}
  .compare-row{margin:10px 0}.move-teams{grid-template-columns:1fr}.move-team{display:grid;grid-template-columns:1fr 1fr}.move-team h3{grid-column:1/-1}
  #dex,#friend,#history{max-width:850px;margin:18px auto;border-radius:20px;overflow:hidden}
  #catalog{grid-template-columns:1fr 1fr}#result{margin:30px auto}

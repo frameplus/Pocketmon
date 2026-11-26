@@ -2,6 +2,8 @@ FROM python:3.12-slim AS assets
 WORKDIR /build
 COPY scripts/cache.py scripts/cache.py
 RUN python scripts/cache.py
+COPY scripts/thumbnails.py scripts/thumbnails.py
+RUN pip install --no-cache-dir Pillow==11.3.0 && python scripts/thumbnails.py
 
 FROM python:3.12-slim AS model
 WORKDIR /model

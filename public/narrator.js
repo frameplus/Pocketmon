@@ -33,6 +33,7 @@ function narrationText(text,lang){
 function createNarrator(lang,onState){
   let context,source,utterance,timer,request,finish,voiceListener,generation=0;
   const synth=window.speechSynthesis;
+  let recordings;
   function selectVoice(){
     try{
       const voices=(synth?.getVoices()||[]).filter(v=>v.lang.toLowerCase().split(/[-_]/)[0]===lang);
@@ -94,20 +95,21 @@ function createNarrator(lang,onState){
     try{synth?.cancel()}catch{}
     signal('idle');
   }
-  function speak(text){
+  function speak(text,preferRecording=false){
     stop();const id=generation;
     const phrases=narrationText(text,lang).split(/(?<=[.!?。！？])\s+/u).map(s=>s.trim()).filter(Boolean);
     if(!phrases.length)return;
     const done=new Promise(resolve=>{finish=resolve});
     onState('loading');
-    async function fallback(start){
+    async function fallback(start,clip){
       clearTimeout(timer);
       if(id!==generation)return;
       utterance=null;try{synth?.cancel()}catch{}
       try{
         if(!context)throw Error('audio unavailable');
         request=new AbortController();
-        const r=await fetch('/api/narration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang,text:phrases.slice(start).join(' ')}),signal:request.signal});
+        const r=clip?await fetch('/voice/'+clip+'.wav',{signal:request.signal}):
+          await fetch('/api/narration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang,text:phrases.slice(start).join(' ')}),signal:request.signal});
         if(!r.ok)throw Error('audio');
         const buffer=await context.decodeAudioData(await r.arrayBuffer());
         if(id!==generation)return;
@@ -115,7 +117,7 @@ function createNarrator(lang,onState){
         source=context.createBufferSource();source.buffer=buffer;source.connect(context.destination);
         source.onended=()=>{if(id===generation){source=null;signal('idle')}};
         source.start();onState('playing');
-      }catch{if(id===generation)signal('error')}
+      }catch{if(id===generation){if(clip)next(start);else signal('error')}}
     }
     let voice=selectVoice();
     function next(n){
@@ -132,7 +134,9 @@ function createNarrator(lang,onState){
         timer=setTimeout(()=>{if(current())fallback(n)},2200);synth.speak(u);
       }catch{fallback(n)}
     }
-    if(!voice&&synth?.addEventListener&&window.SpeechSynthesisUtterance){
+    function startSpeech(){
+     if(id!==generation)return;
+     if(!voice&&synth?.addEventListener&&window.SpeechSynthesisUtterance){
       // Some phones populate getVoices() asynchronously after the first tap.
       function resume(){
         if(id!==generation)return;
@@ -142,7 +146,16 @@ function createNarrator(lang,onState){
       synth.addEventListener('voiceschanged',voiceListener);
       timer=setTimeout(()=>{voice=selectVoice();resume()},700);
       voiceListener();
-    }else next(0);
+     }else next(0);
+    }
+    if(preferRecording&&lang==='ko'){
+      recordings??=fetch('/voice/lines.json',{signal:AbortSignal.timeout(2000)}).then(r=>r.ok?r.json():{}).catch(()=>({}));
+      recordings.then(lines=>{
+        if(id!==generation)return;
+        const line=phrases.join(' '),clip=Object.keys(lines).find(key=>lines[key]===line);
+        if(clip)fallback(0,clip);else startSpeech();
+      });
+    }else startSpeech();
     return done;
   }
   try{synth?.getVoices()}catch{}
