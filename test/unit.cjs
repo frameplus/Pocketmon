@@ -30,6 +30,17 @@ test('base HP and level-50 HP are distinct, including Shedinja and Mega forms',(
   assert.equal(sim.simulate([id,7],{seed}).initial[0],max);
  }
 });
+test('card stats and bilingual abilities cover every form at level 50',()=>{
+ for(const p of d.pokemon){
+  const profile=sim.cardProfile(p.id);
+  assert.deepEqual(p.battleStats,profile.stats,p.en);
+  assert.equal(p.battleStats[0],G.hp(p));assert.equal(p.ability.en,profile.ability);
+  assert.match(p.ability.ko,/[가-힣]/);
+ }
+ for(const [id,values,ko] of [[25,[110,75,60,70,70,110],'정전기'],[6,[153,104,98,129,105,120],'맹화'],[292,[1,110,65,50,50,60],'불가사의부적'],[746,[120,160,150,160,155,50],'어군'],[1024,[170,115,130,125,130,105],'테라체인지']]){
+  assert.deepEqual(by.get(id).battleStats,values);assert.equal(by.get(id).ability.ko,ko);
+ }
+});
 test('all cached forms match simulator HP and yield valid battle replays',()=>{
  for(const p of d.pokemon){
   const pair=[p,by.get(1+(p.dex*37)%1025)],ids=pair.map(x=>x.id);

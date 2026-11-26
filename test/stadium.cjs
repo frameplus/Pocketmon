@@ -49,7 +49,7 @@ module.exports=async function testStadium(browser,url){
   assert.ok(events.at(-1).round>=4);
   assert.deepEqual(new Set(events.filter(e=>e.kind==='move').map(e=>e.i)),new Set([0,1]));
   await page.waitForFunction(()=>document.querySelector('#battlefield').dataset.technique==='flame');
-  const heights=await page.evaluate(()=>window.heights);assert.ok(heights.every(h=>h>=844*.30));console.log('Projected fighter heights on 390 × 844',heights);
+  const heights=await page.evaluate(()=>window.heights);assert.ok(heights[0]>34 && heights[1]>heights[0]*1.35 && heights.every(h=>h<844*.24),'both models fit the field and Charizard is larger');console.log('Projected fighter heights on 390 × 844',heights);
   await page.locator('#celebration').waitFor();
   assert.equal(await page.locator('#victory-word').innerText(),'VICTORY!');
   assert.equal(await page.locator('#victory-name').innerText(),['피카츄 승리!','리자몽 승리!'][winner]);

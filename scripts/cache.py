@@ -106,7 +106,12 @@ back_sprites=[(1, 989), (996, 1005), (1007, 1007), (1009, 1009), (1011, 1016), (
 for i,p in dex.items():
     p["battleFront"]=in_ranges(i,front_sprites)
     p["battleBack"]=in_ranges(i,back_sprites)
-(out/"dex.json").write_text(json.dumps(dict(pokemon=list(dex.values()),moves=moves,chart=chart),ensure_ascii=False,separators=(",",":")))
+ability_labels=defaultdict(dict)
+for r in rows("ability_names"):
+    if r["local_language_id"] in ("3","9"):
+        ability_labels[r["ability_id"]][r["local_language_id"]]=r["name"]
+ability_names={labels["9"]:labels["3"] for labels in ability_labels.values() if "9" in labels and "3" in labels}
+(out/"dex.json").write_text(json.dumps(dict(pokemon=list(dex.values()),moves=moves,chart=chart,abilityNames=ability_names),ensure_ascii=False,separators=(",",":")))
 def art(i):
     fetch(f"https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/pokemon/other/official-artwork/{i}.png",out/"art"/f"{i}.png",b"\x89PNG\r\n\x1a\n")
     for folder,key,prefix in [("front","battleFront",""),("back","battleBack","back/")]:

@@ -31,9 +31,9 @@
  });
  function say(s){if(!mute&&!rec)return narrator.speak(s)}
  function unlockSound(){if(!mute)narrator.unlock()}
- function notify(s,hold=false){if($('pickerStatus'))$('pickerStatus').textContent=s;clearTimeout(noticeTimer);$('speech').textContent=s;$('speech').hidden=false;if(!hold)noticeTimer=setTimeout(()=>$('speech').hidden=true,5500)}
+ function notify(s,hold=false){clearTimeout(noticeTimer);$('speech').textContent=s;$('speech').hidden=false;if(!hold)noticeTimer=setTimeout(()=>$('speech').hidden=true,5500)}
  function markMic(on){
-  document.querySelectorAll('.slotmic').forEach(b=>{const listening=on&&activePage==='battle'&&target===listeningSide;b.classList.toggle('onair',listening);b.setAttribute('aria-pressed',String(listening))});
+  document.querySelectorAll('.slotmic').forEach((b,i)=>{const listening=on&&activePage==='battle'&&i===listeningSide;b.classList.toggle('onair',listening);b.setAttribute('aria-pressed',String(listening))});
   document.querySelectorAll('[data-mic]').forEach(b=>{b.classList.toggle('onair',on);b.textContent=on?t('● 듣고 있어요!',"● Listening!"):b.closest('#friend')?t('🎙 말하기',"🎙 Talk"):t('🎙 이름 말하기',"🎙 Say a name")})}
  function cancelVoice(){voiceEpoch++;if(rec){let old=rec;rec=null;try{old.abort()}catch{}}narrator.stop();markMic(false);$('speech').hidden=true}
  function mic(side=target){
@@ -47,43 +47,52 @@
   r.onend=()=>{if(generation!==voiceEpoch)return;rec=null;markMic(false);if(failed)return;if(!choices.length){notify(t('다시 누르고 말해 줘.',"Tap again and say a name."));return}const ranked=choices.map(t=>[G.heard(idx,t).length,t]).sort((a,b)=>b[0]-a[0]);notify(t('들은 말 · ',"Heard · ")+ranked[0][1]);ask(ranked[0][1],side)};
   try{notify(t('마이크 연결 중…',"Connecting microphone…"),true);r.start()}catch{rec=null;notify(t('마이크를 시작할 수 없어. 권한을 확인해 줘.',"Could not start the mic. Check permissions."))}
  }
- function card(p,side){
-  const moves=p.moves.map(id=>{const m=d.moves[id];return `<div class="move"><b>${esc(m.name)}</b><small>${G.icons[m.type]} ${types[m.type]} · ${m.power?t('위력 ',"Power ")+m.power:m.category===1?t('변화 기술','Status move'):t('가변·특수 위력','Variable / special power')}</small></div>`}).join('');
-  return `<article class="card" style="--t:${G.colors[p.types[0]]};--u:${G.colors[p.types[1]||p.types[0]]}"><div class="shell"><div class="cardtop"><div><small class="serial">${side ? esc(side)+" · " : ""}No. ${String(p.dex).padStart(4,'0')}</small><h2>${esc(p.name)}</h2></div><span class="hp"><small>Lv.50 · HP</small> <b class="card-hp">${G.hp(p)}</b></span></div><div class="art">${img(p)}</div><div class="meta">${badges(p)}<span class="region-tag">${esc(region(p.region))}</span><span class="height-tag">${t("도감 키","Height")} ${p.heightDm/10} m</span></div><div class="card-info"><h3 class="move-title">${t("도감 종족값","Base stats")}</h3><div class="stats">${p.stats.map((v,i)=>`<span style="--stat:${v/255*100}%">${stats[i]}<b>${v}</b></span>`).join('')}</div><h3 class="move-title">${t("대표 기술","Moves")}</h3>${moves}</div></div></article>`
+ function card(p,side,interactive=false){
+  const moves=p.moves.map(id=>{
+   const m=d.moves[id],power=m.power?String(m.power):m.category===1?t('변화 기술','Status move'):t('특수 위력','Variable power');
+   return `<div class="move" style="--move-type:${G.colors[m.type]}"><b>${esc(m.name)}</b><small>${G.icons[m.type]} ${types[m.type]} · ${power}</small></div>`;
+  }).join('');
+  const art=interactive?`<button class="art front" aria-label="${esc(p.name)} ${t('상세 보기','card details')}">${img(p)}</button>`:`<div class="art">${img(p)}</div>`;
+  return `<article class="card" style="--t:${G.colors[p.types[0]]};--u:${G.colors[p.types.at(-1)]}"><div class="shell">
+   <div class="cardtop"><small class="serial">${esc(side)} · No.${String(p.dex).padStart(4,'0')}</small>
+   <h2 class="poke-name">${esc(p.name)}</h2><span class="hp">HP <b class="card-hp">${p.battleStats[0]}</b></span></div>
+   ${art}<div class="meta">${badges(p)}</div>
+   <div class="card-info"><p class="ability"><span>${t('특성','Ability')}</span> <b>${esc(en?p.ability.en:p.ability.ko)}</b></p>
+   <h3 class="move-title">${t('Lv.50 능력치','Lv.50 stats')}</h3>
+   <div class="stats">${p.battleStats.map((v,i)=>`<span>${stats[i]}<b>${v}</b></span>`).join('')}</div>
+   <h3 class="move-title">${t('기술 · 위력','Moves · Power')}</h3><div class="moves">${moves}</div>
+   ${interactive?'':`<p class="origin"><span class="region-tag">${esc(region(p.region))}</span> · <span class="height-tag">${t('도감 키','Height')} ${p.heightDm/10} m</span></p>`}</div></div></article>`;
  }
  let dexSide=null;
  function choose(i,p){if($('modal').open)$('modal').close();pair[i]=p;focus=p.id;target=i;refresh()}
  function sideName(i){return i?t('상대 카드','Opponent’s card'):t('내 카드','My card')}
  function slot(i){
-  const p=pair[i],el=$('slot'+i);
-  el.innerHTML=`<p class="team">${esc(trainers[i].trim()||sideName(i))}</p>
-   <button class="front" style="--t:${G.colors[p.types[0]]};--u:${G.colors[p.types.at(-1)]}" aria-label="${esc(p.name)} ${t('카드 자세히 보기','card details')}">
-   <span class="card-hp">HP ${G.hp(p)}</span><span class="art">${img(p)}</span><strong class="poke-name">${esc(p.name)}</strong><span class="meta">${badges(p)}</span></button>
-   <button class="change" aria-label="${sideName(i)} ${t('바꾸기','change')}">${t('↻ 바꾸기','↻ Change')}</button>`;
-  el.querySelector('.front').onclick=()=>details(i);el.querySelector('.change').onclick=()=>picker(i);
+  const p=pair[i],el=$('slot'+i),label=sideName(i);
+  el.innerHTML=card(p,trainers[i].trim()||label,true)+`
+   <div class="inline-pick"><div class="find-row">
+    <input class="pick-query" type="search" autocomplete="off" aria-label="${label} ${t('이름 검색','name search')}" placeholder="${t('이름 검색','Search name')}">
+    <button class="slotmic" aria-label="${label} ${t('이름 말하기','voice search')}" aria-pressed="false">🎙</button>
+   </div><div class="suggest" hidden></div><button class="draw" aria-label="${label} ${t('랜덤 뽑기','random draw')}">↻ ${t('랜덤 뽑기','Random card')}</button></div>`;
+  const q=el.querySelector('.pick-query'),list=el.querySelector('.suggest');
+  el.querySelector('.front').onclick=()=>details(i);
+  q.onfocus=()=>{target=i};
+  q.oninput=()=>{
+   questionEpoch++;list.hidden=!q.value.trim();
+   const matches=list.hidden?[]:G.search(idx,q.value);
+   list.innerHTML=matches.map(f=>`<button data-id="${f.id}">${img(f)}<span><b>${esc(f.name)}</b><small>${f.types.map(n=>types[n]).join(' · ')}</small></span></button>`).join('');
+   if(!list.hidden&&!matches.length)list.textContent=t('다른 이름을 써 봐.','Try another name.');
+  };
+  q.onkeydown=e=>{if(e.key==='Enter')list.querySelector('button')?.click();if(e.key==='ArrowDown'){e.preventDefault();list.querySelector('button')?.focus()}if(e.key==='Escape')list.hidden=true};
+  el.querySelector('.inline-pick').onfocusout=e=>{if(!e.currentTarget.contains(e.relatedTarget))list.hidden=true};
+  list.onclick=e=>{const b=e.target.closest('[data-id]');if(b){unlockSound();choose(i,by.get(+b.dataset.id));say(pair[i].name+'!')}};
+  el.querySelector('.draw').onclick=()=>drawCards(i);
+  el.querySelector('.slotmic').onclick=()=>mic(i);
  }
  function details(i){
   const p=pair[i],forms=d.pokemon.filter(x=>x.dex===p.dex&&x.id!==p.id);
-  openModal(card(p,sideName(i))+forms.map(f=>`<button data-form="${f.id}">${f.id===f.dex?t('기본 모습','Base form'):'✧ '+esc(f.name)}</button>`).join(''),'detail');
+  openModal(card(p,sideName(i))+forms.map(f=>`<button data-form="${f.id}">${f.id===f.dex?t('기본 모습','Base form'):'✧ '+esc(f.name)}</button>`).join('')+`<button id="browse">${t('도감에서 고르기','Pick from Pokédex')}</button>`,'detail');
   $('modalbody').querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{unlockSound();choose(i,by.get(+b.dataset.form));say(pair[i].name+'!')});
- }
- function picker(i){
-  target=i;
-  openModal(`<h2 tabindex="-1" autofocus>${sideName(i)} ${t('바꾸기','· Choose')}</h2>
-   <input id="pickQuery" aria-label="${t('포켓몬 검색','Find Pokémon')}" placeholder="${t('이름이나 초성','Name or number')}" autocomplete="off">
-   <div id="suggest" class="suggest"></div><div class="pick-tools"><button class="slotmic" data-mic>${t('🎙 이름 말하기','🎙 Say a name')}</button>
-   <button id="draw">${t('랜덤 카드 뽑기','Draw random card')}</button><button id="browse">${t('도감에서 고르기','Pick from Pokédex')}</button></div><p id="pickerStatus" role="status"></p>`,'picker');
-  const q=$('pickQuery'),list=$('suggest');
-  q.oninput=()=>{
-   const matches=q.value.trim()?G.search(idx,q.value):[];
-   list.innerHTML=matches.map(p=>`<button data-id="${p.id}">${img(p)}<b>${esc(p.name)}</b><small>${p.types.map(n=>types[n]).join(' · ')}</small></button>`).join('');
-   if(q.value.trim()&&!matches.length)list.textContent=t('다른 이름을 써 봐.','Try another name.');
-  };
-  q.onkeydown=e=>{if(e.key==='Enter')list.querySelector('button')?.click();if(e.key==='ArrowDown'){e.preventDefault();list.querySelector('button')?.focus()}};
-  list.onclick=e=>{const b=e.target.closest('[data-id]');if(b){unlockSound();choose(i,by.get(+b.dataset.id));say(pair[i].name+'!')}};
-  $('draw').onclick=()=>{$('modal').close();drawCards(i)};
   $('browse').onclick=()=>{$('modal').close();dexSide=i;$('dexquery').value='';activeType=0;$('kindFilter').value='';$('regionFilter').value='';pageSize=36;go('dex')};
-  $('modalbody').querySelector('.slotmic').onclick=()=>mic(i);
  }
  function fighter(p,side){
   const animated=p.battleFront;
@@ -106,17 +115,10 @@
     left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
    }
    // Keep a little space around moving ears and tails in animated GIFs.
-   const pad=[top,95-right,95-bottom,left].map(n=>Math.max(0,n-3));
-   const w=96-pad[1]-pad[3],h=96-pad[0]-pad[2];
-   const crop=right<left?{inset:'none',aspect:1,margin:1}:{
-    inset:'inset('+pad.map(n=>n*100/96+'%').join(' ')+')',
-    aspect:image.naturalWidth/image.naturalHeight*w/h,
-    margin:h/(bottom-top+1)
-   };
-   spriteCrops.set(source,crop);
+   const inset=right<left?'none':'inset('+[top,95-right,95-bottom,left].map(n=>Math.max(0,n-4)*100/96+'%').join(' ')+')';
+   spriteCrops.set(source,inset);
   }
-  const {inset,aspect,margin}=spriteCrops.get(source),actor=image.closest('.actor');
-  image.style.objectViewBox=inset;actor.style.setProperty('--aspect',String(aspect));actor.style.setProperty('--margin',String(margin));
+  image.style.objectViewBox=spriteCrops.get(source);
  },true);
  function actors(){
   const sizes=G.fieldSizes(pair);
@@ -235,7 +237,7 @@
   $('result').innerHTML=`<article class="battle-recap"><div class="winner-art" style="--t:${G.colors[(v||pair[0]).types[0]]}">${v?img(v):pair.map(p=>img(p)).join('')}</div><h2 tabindex="-1">${esc(title)}</h2><p>${esc(why)}</p><button type="button" id="read-result"></button><small id="read-status" role="status"></small></article>
   <div class="result-actions"><button id="rematch" class="mainbtn">${t('다시 대결','Rematch')}</button><button id="different">${t('다른 친구랑','Change friends')}</button></div>`;
   phase('result');$('result').querySelector('h2').focus({preventScroll:true});
-  $('rematch').onclick=battle;$('different').onclick=()=>{refresh();$('slot0').querySelector('.change').focus()};
+  $('rematch').onclick=battle;$('different').onclick=()=>{refresh();$('slot0').querySelector('.pick-query').focus()};
   narrator.stop();
   $('read-result').onclick=()=>{
     if(mute){notify(t('부모 설정에서 음성 읽기를 켜 주세요.','Turn speech on in parent settings.'));return}
@@ -331,7 +333,7 @@
   $('clearhistory').onclick=()=>{history=[];put('history',history);records();$('pinmsg').textContent=t('이 기기의 기록을 지웠어요.',"History cleared on this device.")};
   $('setpin').onsubmit=async e=>{e.preventDefault();const salt=crypto.randomUUID();put('pin',{salt,hash:await digest($('newpin').value,salt)});$('newpin').value='';$('pinmsg').textContent=t('저장했어요. 다음에 열 때 비밀번호가 필요해요.',"Saved. Your PIN will be needed next time.")}
  }
- $('modal').addEventListener('close',()=>{if(rec)cancelVoice();if($('modal').dataset.kind==='picker')questionEpoch++});
+ $('modal').addEventListener('close',()=>{if(rec)cancelVoice();});
  $('settings').onclick=()=>settings();$('close').onclick=()=>$('modal').close();$('start').onclick=battle;
  $('dexquery').oninput=()=>{pageSize=36;catalog()};$('more').onclick=()=>{pageSize+=36;catalog()};
  $('catalog').onclick=e=>{const btn=e.target.closest('[data-card]');if(!btn)return;const p=by.get(+btn.dataset.card);if(dexSide!==null){const side=dexSide;go('battle');choose(side,p);return}openModal(card(p,t('전국도감',"National Dex"))+`<button id="mine">${t('내 카드로','Pick for me')}</button><button id="theirs">${t('상대 카드로','Pick as opponent')}</button>`);for(let [n,i] of [['mine',0],['theirs',1]])$(n).onclick=()=>{$('modal').close();choose(i,p);go('battle')}};

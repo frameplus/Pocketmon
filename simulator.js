@@ -18,11 +18,27 @@ function makeSimulator(data) {
     sets.set(p.id,{species:s.name,ability:s.abilities[0],moves:p.moves.map(id=>data.moves[id].en),level:50,nature,ivs,evs,item:''});
   }
 
-  function simulate(ids,{seed,record=true}={}) {
-    const battle = new Battle({formatid:'gen9customgame',seed});
-    try {
+  function start(ids,seed){
+    const battle=new Battle({formatid:'gen9customgame',seed});
+    try{
       ids.forEach((id,i)=>battle.setPlayer('p'+(i+1),{name:'side'+i,team:[{...sets.get(id)}]}));
       battle.makeChoices('team 1','team 1');
+      return battle;
+    }catch(error){battle.destroy();throw error}
+  }
+
+  // Read unboosted entry stats after automatic form changes, before either side attacks.
+  function cardProfile(id){
+    const battle=start([id,129],[1,2,3,4]);
+    try{
+      const pokemon=battle.sides[0].active[0],ability=Dex.abilities.get(sets.get(id).ability);
+      return {stats:[pokemon.maxhp,...keys.slice(1).map(k=>pokemon.storedStats[k])],ability:ability.name};
+    }finally{battle.destroy()}
+  }
+
+  function simulate(ids,{seed,record=true}={}) {
+    const battle=start(ids,seed);
+    try {
       const active = () => battle.sides.map(s=>s.active[0]||s.pokemon[0]);
       active().forEach(applyJuniorRules);
       const initial = active().map(p=>p.maxhp), events=[];
@@ -49,7 +65,7 @@ function makeSimulator(data) {
     for(let i=0;i<count;i++){const {winner}=simulate(ids,{record:false});wins[winner===-1?2:winner]++}
     return {wins,count};
   }
-  return {simulate,forecast};
+  return {simulate,forecast,cardProfile};
 }
 
 // Resolve accuracy, type, stats, abilities and criticals in Showdown first.
