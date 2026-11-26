@@ -26,6 +26,7 @@ function narrationText(text,lang){
   if(lang!=='ko')return text;
   const hpWords={HP:'체력',HP가:'체력이',HP는:'체력은',HP를:'체력을',HP로:'체력으로'};
   return text.replace(spokenNamePattern,name=>spokenNames[name]).replace(/HP[가는를로]?/g,word=>hpWords[word]).replace(/·/g,', ')
+    .replace(/(?<![\d.])([24])배/g,(_,n)=>n==='2'?'두 배':'네 배')
     .replace(/(?<!\d)(\d{1,4})\.(\d+)/g,(_,whole,fraction)=>koreanNumber(whole)+' 점 '+Array.from(fraction,koreanNumber).join(' '))
     .replace(/(?<!\d)(\d{1,4})\s*번/g,(_,digits)=>koreanCount(digits)+' 번')
     .replace(/(?<!\d)\d{1,4}(?!\d)/g,koreanNumber);

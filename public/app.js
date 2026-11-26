@@ -247,10 +247,12 @@
   await playback.wait(2100);if(id!==epoch)return;
   const v=pair[w],title=v?v.name+t(' 승리!',' wins!'):t('무승부!','A tie!');
   const reading=(!en&&v?v.name+'의 승리야!':title)+' '+why;
-  $('result').innerHTML=`<article class="battle-recap"><div class="winner-art" style="--t:${G.colors[(v||pair[0]).types[0]]}">${v?img(v):pair.map(p=>img(p)).join('')}</div><h2 tabindex="-1">${esc(title)}</h2><p>${esc(why)}</p><button type="button" id="read-result"></button><small id="read-status" role="status"></small></article>
-  <div class="result-actions"><button id="rematch" class="mainbtn">${t('다시 대결','Rematch')}</button><button id="different">${t('다른 친구랑','Change friends')}</button></div>`;
+  const koHit=w>=0&&events.findLast(e=>e.kind==='move'&&e.i===w&&e.damage>0&&e.hp[1-w]===0);
+  const finishLine=koHit?t(`${koHit.round}턴 · ${d.moves[koHit.move].name} · ${pair[1-w].name}의 체력 ${koHit.damage} → 0`,`Turn ${koHit.round} · ${d.moves[koHit.move].name} · ${pair[1-w].name}’s HP ${koHit.damage} → 0`):'';
+  $('result').innerHTML=`<article class="battle-recap"><div class="winner-art" style="--t:${G.colors[(v||pair[0]).types[0]]}">${v?img(v):pair.map(p=>img(p)).join('')}</div><h2 tabindex="-1">${esc(title)}</h2><p>${esc(why)}</p>${finishLine?`<small class="finish-line">${esc(finishLine)}</small>`:''}<button type="button" id="read-result"></button><small id="read-status" role="status"></small></article>
+  <div class="result-actions"><button id="rematch" class="mainbtn">RETRY</button><button id="different">HOME</button></div>`;
   phase('result');$('result').querySelector('h2').focus({preventScroll:true});
-  $('rematch').onclick=battle;$('different').onclick=()=>{refresh();$('slot0').querySelector('.pick-query').focus()};
+  $('rematch').onclick=battle;$('different').onclick=goHome;
   narrator.stop();
   $('read-result').onclick=()=>{
     if(mute){notify(t('부모 설정에서 음성 읽기를 켜 주세요.','Turn speech on in parent settings.'));return}
@@ -264,19 +266,21 @@
   if(w<0)return result.capped?t('두 친구가 100턴 동안 버텼어.','Both friends lasted all 100 turns.'):t('두 친구가 같은 턴에 대결을 마쳤어.','Both friends finished on the same turn.');
   const hits=events.filter(e=>e.kind==='move'&&e.i===w&&e.damage>0);
   const guard=events.find(e=>e.i!==w&&e.reason==='ability: Wonder Guard'&&e.effect==='immune');
-  if(guard)return t(`불가사의부적이 상대의 ${d.moves[guard.move].name} 공격을 막아 줬어.`,`Wonder Guard blocked the other team’s ${d.moves[guard.move].name}.`);
+  if(guard)return t(`불가사의부적은 약점을 찌르는 기술만 통하게 해. 상대의 ${types[guard.matchup?.type||d.moves[guard.move].type]} 기술 ${d.moves[guard.move].name}도 막아서 체력을 지켰어.`,`Wonder Guard only lets super-effective moves through. It blocked the ${types[guard.matchup?.type||d.moves[guard.move].type]} move ${d.moves[guard.move].name}, preserving HP.`);
+  const last=events.at(-1);
+  if(last?.kind==='indirect'&&last.i===1-w&&last.hp[1-w]===0){
+   return G.explain(result,pair,d,lang)[1];
+  }
+  const withType=(e,line)=>[line,G.typeLesson(e,pair,d,en)].filter(Boolean).join(' ');
   const strong=hits.find(e=>e.effect==='strong'&&e.matchup?.factor>1);
   if(strong){
-   const m=d.moves[strong.move],last=m.name.charCodeAt(m.name.length-1)-0xac00;
-   const particle=last>=0&&last<11172?(last%28===0||last%28===8?'로':'으로'):' 기술로';
-   return t(`${m.name}${particle} ${pair[strong.j].name}의 약점을 찔렀어!`,`${m.name}, a ${types[strong.matchup.type]} move, hit the other team's weakness!`)
+   return withType(strong,t(`${d.moves[strong.move].name}!`,`${pair[w].name} used ${d.moves[strong.move].name}!`))
   }
   const critical=hits.find(e=>e.crit);
-  if(critical)return t(`${d.moves[critical.move].name} 공격이 급소에 맞았어!`,`${d.moves[critical.move].name} landed a powerful critical hit!`);
+  if(critical)return withType(critical,t(`${d.moves[critical.move].name} 공격이 급소에 맞았어!`,`${d.moves[critical.move].name} landed a powerful critical hit!`));
   const best=hits.reduce((best,e)=>!best||best.damage<e.damage?e:best,null);
   if(best){const m=d.moves[best.move],count=hits.filter(e=>e.move===best.move).length;
-   return count>1?t(`${m.name} 공격을 ${count}번이나 맞혔어!`,`${m.name} landed ${count} times!`):t(`${m.name}! 이 한 방에 상대 체력이 가장 많이 줄었어.`,`On turn ${best.round}, ${m.name} took away ${best.damage} HP.`)}
-  const last=events.at(-1);
+   return withType(best,count>1?t(`${m.name} 공격을 ${count}번이나 맞혔어!`,`${m.name} landed ${count} times!`):t(`${m.name}! 이 한 방에 상대 체력이 가장 많이 줄었어.`,`On turn ${best.round}, ${m.name} took away ${best.damage} HP.`))}
   if(last?.kind==='indirect')return t(`마지막 턴에 전투 효과로 ${pair[last.i].name}의 체력이 줄었어.`,`A battle effect took away ${pair[last.i].name}’s HP on the last turn.`);
   return t(`${pair[w].name} 쪽이 마지막 차례까지 버텼어.`,`${pair[w].name} held on through the last turn.`);
  }
@@ -328,6 +332,11 @@
   if(!valid.length)$('records').textContent=t('첫 대결을 마치면 여기에 승자가 나타나!','Finish a battle to see the winner here!');
  }
  function usePair(ids){pair=ids.map(i=>by.get(i));refresh()}
+ function goHome(){
+  if(location.hash!=='#battle')window.history.pushState(null,'','#battle');
+  go('battle');refresh();
+  $('chooser').querySelector('h1').focus({preventScroll:true});
+ }
  function go(name){
   if(!['battle','dex','friend','history'].includes(name))name='battle';
   if(activePage!==name){if(activePage==='dex')dexSide=null;questionEpoch++;cancelVoice();if(activePage==='battle'&&busy)refresh();activePage=name;window.scrollTo(0,0)}
@@ -378,7 +387,14 @@
  },true);
  $('catalog').onclick=e=>{const btn=e.target.closest('[data-card]');if(!btn)return;const p=by.get(+btn.dataset.card);if(dexSide!==null){const side=dexSide;go('battle');choose(side,p);return}openModal(card(p,t('전국도감',"National Dex"))+`<button id="mine">${t('내 카드로','Pick for me')}</button><button id="theirs">${t('상대 카드로','Pick as opponent')}</button>`);for(let [n,i] of [['mine',0],['theirs',1]])$(n).onclick=()=>{$('modal').close();choose(i,p);go('battle')}};
  $('chat').onsubmit=e=>{e.preventDefault();ask($('message').value)};$('examples').onclick=e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent)};
- document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=()=>mic());document.querySelectorAll('header a[href^="#"],nav a').forEach(a=>a.onclick=e=>{e.preventDefault();if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);go(a.hash.slice(1))});window.onhashchange=()=>go(location.hash.slice(1));
+ document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=()=>mic());
+ document.querySelectorAll('header a[href^="#"],nav a').forEach(a=>a.onclick=e=>{
+  if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;
+  e.preventDefault();
+  if(a.hash==='#battle'){goHome();return}
+  if(location.hash!==a.hash)window.history.pushState(null,'',a.hash);
+  go(a.hash.slice(1));
+ });window.onhashchange=()=>go(location.hash.slice(1));
  buildField($('battlefield'));
  document.querySelector('.battle-journal').open=matchMedia('(min-height:760px)').matches;
  const view=$('battlefield');
