@@ -9,11 +9,18 @@
   <button class="primary" id="launch"></button>
  </section>
  <section id="waiting" hidden><h2 data-en="Invite a friend">친구 초대</h2><p data-en="Send this link to a friend. The match starts when they confirm their three Pokémon.">친구에게 링크를 보내 줘. 친구가 세 마리를 고르고 참가하면 대결이 시작돼.</p>
-  <label for="invite" data-en="Room link">대결방 링크</label><div class="invite-row"><input id="invite" readonly><button id="copy" data-en="Copy link">링크 복사</button></div>
+  <label for="invite" data-en="Room link">대결방 링크</label><input id="invite" readonly>
+  <div class="share-actions"><button id="share" class="primary" data-en="Share invite">링크 보내기</button><button id="copy" data-en="Copy link">링크 복사</button></div>
+  <p id="share-hint" role="status"></p>
   <div id="locked-team"></div><a class="back" href="/teams.html" data-en="Team selection">팀 선택으로</a>
  </section>
  <section id="watch" hidden><div class="round-head"><h2 id="round-title"></h2><button id="finish" data-en="Team result">팀 결과 보기</button></div><div id="live-score"></div><div id="stage"></div></section>
- <section id="result" hidden><h2 id="verdict"></h2><div id="score"></div><div id="rounds"></div><div class="actions"><button id="replay" data-en="Watch again">다시 보기</button><a class="back" href="/teams.html" data-en="New team battle">새 팀 대결</a><a class="back" href="/#battle">HOME</a></div></section>
+ <section id="result" hidden>
+  <div class="podium"><div class="result-heading"><span class="trophy" aria-hidden="true">🏆</span><h2 id="verdict"></h2></div>
+   <div id="champions"></div><div id="score"></div></div>
+  <div class="result-body"><div class="actions"><button id="rematch" class="primary" data-en="Rematch">재대결</button><button id="replay" data-en="Watch again">다시 보기</button><a class="back" href="/teams.html" data-en="New teams">새 팀 대결</a><a class="back" href="/#battle">HOME</a></div>
+   <p id="rematch-status" role="status"></p><h3 data-en="Round results">경기별 결과</h3><div id="rounds"></div></div>
+ </section>
  <p id="notice" role="status" aria-live="polite"></p><a id="restart" hidden href="/teams.html" data-en="Start a new match">새 대결 열기</a>
 </main>
 <dialog id="picker"><form method="dialog"><strong id="pick-title"></strong><button aria-label="닫기" data-en-label="Close">✕</button></form><input id="query" type="search" placeholder="검색" data-en-placeholder="Search" aria-label="포켓몬 검색" data-en-label="Search Pokémon" autocomplete="off"><div id="choices"></div></dialog>

@@ -13,6 +13,13 @@
  }
  let room=newURL.searchParams.get('room'),mode=room?'join':'practice',pendingId=null;
  let teams=[room?[6,94,130]:[25,9,3],[6,94,130]],editing,match,side=0,round=0,frame,poll,submitting=false;
+ const draftNames=[localStorage.getItem('arena.team-name')||'',''];
+ let names=['',''],game=1,ready=0,voting=false,pollVersion=0;
+ const teamName=i=>names[i]||(i===side?t('우리 팀','Your team'):t('상대 팀','Opponent'));
+ function roomMatch(state){
+  names=state.names;game=state.game;ready=state.ready;
+  watch(state.match,state.side);
+ }
  const secrets=new Map();
  function credential(id){
   if(secrets.has(id))return secrets.get(id);
@@ -62,7 +69,14 @@
    card.append(el('small',t((i+1)+'번 출전','Slot '+(i+1))),art(id),el('b',name(id)));
    if(editable)card.onclick=()=>pick(sideIndex,i);grid.append(card);
   });
-  block.append(head,grid);return block;
+  block.append(head);
+  if(editable){
+   const label=el('label',sideIndex?t('상대 팀 이름','Opponent team name'):t('팀 이름','Team name'));
+   const input=el('input');input.type='text';input.maxLength=24;input.className='team-name';input.value=draftNames[sideIndex];
+   input.placeholder=sideIndex?t('예: 불꽃단','e.g. Fire Squad'):t('예: 번개단','e.g. Bolt Squad');
+   input.oninput=()=>{draftNames[sideIndex]=input.value};label.append(input);block.append(label);
+  }else if(names[0])head.firstChild.textContent=names[0];
+  block.append(grid);return block;
  }
  function renderSetup(){
   show('setup');$('lineups').replaceChildren(roster(teams[0],0,true));
@@ -96,27 +110,39 @@
   async function check(){
    try{
     const state=await api(roomPath(room),null,room);status('');
-    if(state.match){watch(state.match,state.side);return}
+    if(state.match){roomMatch(state);return}
    }catch(e){if(handleError(e))return}
    poll=setTimeout(check,1600);
   }
   poll=setTimeout(check,800);
  }
- $('copy').onclick=async()=>{
-  try{await navigator.clipboard.writeText($('invite').value);status(t('링크를 복사했어. 친구에게 보내 줘!','Link copied. Send it to your friend!'))}
-  catch{$('invite').select();status(t('선택된 링크를 복사해 줘.','Copy the selected link.'))}
+ async function copyInvite(){
+  try{await navigator.clipboard.writeText($('invite').value);$('share-hint').textContent=t('초대 링크를 복사했어. 메시지나 카카오톡에 붙여넣어 줘.','Link copied. Paste it into Messages or KakaoTalk.')}
+  catch{$('invite').focus();$('invite').select();$('share-hint').textContent=t('선택된 링크를 복사해서 친구에게 보내 줘.','Copy the selected link and send it to your friend.')}
+ }
+ $('copy').onclick=copyInvite;
+ $('share').onclick=async()=>{
+  const invite={title:t('카드 아레나 · 3:3 대결','Card Arena · Team Battle'),url:$('invite').value,
+   text:(names[0]?names[0]+' · ':'')+t('포켓몬 세 마리를 골라 나랑 대결하자!','Pick three Pokémon and battle me!')};
+  try{
+   if(navigator.share&&(!navigator.canShare||navigator.canShare(invite))){await navigator.share(invite);return}
+  }catch(e){if(e.name==='AbortError')return}
+  await copyInvite();
  };
  $('launch').onclick=async()=>{
   if(submitting)return;submitting=true;
   $('setup').inert=true;$('launch').disabled=true;status(t('준비 중…','Getting ready…'));
   try{
+   localStorage.setItem('arena.team-name',draftNames[0].trim());
    if(mode==='practice'){
+    names=draftNames.map(n=>n.trim());
     const result=await api('/api/team-battle',{team:teams[0],opponent:teams[1]});watch(result,0);
    }else{
     const id=room||(pendingId??=crypto.randomUUID()),creating=mode==='friends';
-    const state=await api(roomPath(id),{action:creating?'create':'join',team:teams[0]},id);
+    const state=await api(roomPath(id),{action:creating?'create':'join',team:teams[0],name:draftNames[0].trim()},id);
     room=id;newURL.searchParams.set('room',room);history.replaceState(null,'',newURL);status('');
-    if(state.match)watch(state.match,state.side);else waitForFriend();
+    names=state.names;
+    if(state.match)roomMatch(state);else waitForFriend();
    }
   }catch(e){handleError(e)}finally{submitting=false;$('setup').inert=false;$('launch').disabled=false}
  };
@@ -124,29 +150,75 @@
   const current=match.rounds[round];
   const score=[0,0];
   for(const previous of match.rounds.slice(0,round))if(previous.result.winner>=0)score[previous.result.winner]++;
-  const own=t('내 팀','My team'),other=t('상대 팀','Opponent');
-  $('live-score').textContent=t('파랑','Blue')+' · '+(side===0?own:other)+' '+score[0]+' : '+score[1]+' '+(side===1?own:other)+' · '+t('빨강','Red');
+  $('live-score').textContent=t('파랑','Blue')+' · '+teamName(0)+' '+score[0]+' : '+score[1]+' '+teamName(1)+' · '+t('빨강','Red');
   $('round-title').textContent=t((round+1)+'차전','Round '+(round+1))+' · '+current.ids.map(name).join(' vs ');
-  frame.contentWindow.postMessage({kind:'team-round',round,...current},location.origin);
+  frame.contentWindow.postMessage({kind:'team-round',round,names,...current},location.origin);
  }
  function watch(value,seat){
-  clearTimeout(poll);match=value;side=seat;round=0;status('');show('watch');
+  clearTimeout(poll);pollVersion++;match=value;side=seat;round=0;status('');show('watch');
   frame=el('iframe');frame.title=t('3:3 배틀 필드','Team battle arena');
   frame.src='/?teamReplay=1&lang='+lang+'#battle';$('round-title').textContent=t('배틀 필드 준비 중…','Opening the arena…');
   $('stage').replaceChildren(frame);window.scrollTo(0,0);
  }
  function result(){
   $('stage').replaceChildren();frame=null;show('result');
-  $('verdict').textContent=match.winner<0?t('무승부!','A tie!'):match.winner===side?t('우리 팀 승리!','Your team wins!'):t('상대 팀 승리!','Opponent wins!');
-  $('score').textContent=t('우리 팀 ','Your team ')+match.score[side]+' : '+match.score[1-side]+t(' 상대 팀',' Opponent');
+  const w=match.winner;
+  $('result').dataset.winner=w<0?'draw':w===0?'blue':'red';
+  $('verdict').textContent=w<0?t('무승부!','A tie!'):teamName(w)+t(' 승리!',' wins!');
+  const champions=w<0?[0,1]:[w];
+  $('champions').replaceChildren(...champions.map(s=>{
+   const team=el('div');team.className='champion-team';
+   for(const r of match.rounds){
+    const id=r.ids[s],figure=el('figure');figure.append(art(id),el('figcaption',name(id)));team.append(figure);
+   }
+   return team;
+  }));
+  $('score').replaceChildren(el('span',teamName(side)),el('strong',match.score[side]+' : '+match.score[1-side]),el('span',teamName(1-side)));
   $('rounds').replaceChildren(...match.rounds.map(({ids,result:r},i)=>{
    const row=el('div');row.className='duel';
    const who=r.winner<0?t('무승부','Tie'):name(ids[r.winner])+t(' 승리',' wins');
-   row.append(el('strong',t((i+1)+'차전','Round '+(i+1))+' · '+ids.map(name).join(' vs ')),el('b',who));
+   row.dataset.winner=r.winner;
+   const header=el('div');header.className='duel-top';
+   header.append(el('small',t((i+1)+'차전','Round '+(i+1))),el('strong',ids.map(name).join(' vs ')),el('b',who));row.append(header);
    const explanation=Game.explain(r,ids.map(id=>by.get(id)),d,lang)[0];
-   row.append(el('small',explanation));return row;
+   const details=el('details');details.append(el('summary',t('경기 해설','Battle recap')),el('p',explanation));row.append(details);return row;
   }));window.scrollTo(0,0);
+  updateVote();
+  if(room)pollResult();
  }
+ function updateVote(){
+  const mine=Boolean(ready&(1<<side)),theirs=Boolean(ready&(1<<(1-side)));
+  $('rematch').disabled=voting||mine;
+  $('rematch').textContent=mine?t('재대결 신청 완료','Rematch requested'):theirs?t('재대결 수락','Accept rematch'):t('재대결','Rematch');
+  $('rematch-status').textContent=mine?t('친구가 수락하면 같은 팀으로 다시 시작해.','Waiting for your friend to accept.'):theirs?t('친구가 재대결을 신청했어!','Your friend wants a rematch!'):'';
+ }
+ function applyVote(state){
+  if(state.game>game){roomMatch(state);return}
+  if(state.game===game){ready|=state.ready;updateVote()}
+ }
+ function pollResult(){
+  const version=++pollVersion;clearTimeout(poll);
+  async function check(){
+   try{
+    const state=await api(roomPath(room)+'?since='+game,null,room);
+    if(version!==pollVersion)return;
+    applyVote(state);
+   }catch(e){
+    if(version!==pollVersion)return;
+    if(e.status===404){$('rematch').disabled=true;$('rematch-status').textContent=t('방이 만료됐어. 새 팀 대결에서 다시 초대해 줘.','Room expired. Start a new team battle.');return}
+   }
+   if(version===pollVersion)poll=setTimeout(check,1800);
+  }
+  poll=setTimeout(check,500);
+ }
+ $('rematch').onclick=async()=>{
+  if(voting)return;voting=true;updateVote();
+  try{
+   if(room)applyVote(await api(roomPath(room),{action:'rematch',game},room));
+   else watch(await api('/api/team-battle',{team:teams[0],opponent:teams[1]}),0);
+  }catch{status(t('재대결 요청을 보내지 못했어. 다시 시도해 줘.','Could not request the rematch. Please try again.'))}
+  finally{voting=false;updateVote()}
+ };
  window.addEventListener('message',e=>{
   if(!frame||e.origin!==location.origin||e.source!==frame.contentWindow)return;
   if(e.data?.kind==='team-ready')sendRound();
@@ -159,9 +231,9 @@
  if(room){
   try{
    const state=await api(roomPath(room),null,room);
-   if(state.match)watch(state.match,state.side);
-   else if(state.side===0){teams[0]=state.team;waitForFriend()}
-   else if(state.available)renderSetup();
+   if(state.match){roomMatch(state);if(state.ready)result()}
+   else if(state.side===0){names=state.names;teams[0]=state.team;waitForFriend()}
+   else if(state.available){renderSetup();if(state.hostName)status(state.hostName+t('의 초대장이야.',' invited you to battle.'))}
    else handleError({status:409});
   }catch(e){if(!handleError(e)){$('restart').href=location.href;$('restart').hidden=false;$('restart').textContent=t('다시 연결','Reconnect')}}
  }else renderSetup();

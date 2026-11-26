@@ -412,6 +412,7 @@
   window.addEventListener('message',e=>{
    if(e.origin!==location.origin||e.source!==window.parent||e.data?.kind!=='team-round')return;
    teamRound=e.data.round;
+   e.data.names?.forEach((n,i)=>{if(n&&i<2)trainers[i]=n});
    usePair(e.data.ids);battle(e.data.result).catch(()=>tellTeam('team-exit'));
   });
   tellTeam('team-ready');
