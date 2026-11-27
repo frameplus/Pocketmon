@@ -6,6 +6,38 @@ const standardPads=[new T.Vector3(-2.05,0,.95),new T.Vector3(2.0,0,-.55)];
 const angles=[.39,-.55];
 const still=matchMedia('(prefers-reduced-motion: reduce)');
 const clamp=v=>Math.max(0,Math.min(1,v));
+// Some pinned exports contain only a bind pose. Work in model space because
+// the local bone axes differ between skeletons (including Machamp's second arms).
+function poseStaticRig(model,id){
+ function rotateWorld(bone,delta){
+  const parent=bone.parent.getWorldQuaternion(new T.Quaternion());
+  bone.quaternion.premultiply(parent.clone().invert().multiply(delta).multiply(parent));
+  bone.updateWorldMatrix(false,true);
+ }
+ function aim(name,end,direction){
+  const bone=model.getObjectByName(name),tip=model.getObjectByName(end);
+  if(!bone||!tip)return;
+  const from=tip.getWorldPosition(new T.Vector3()).sub(bone.getWorldPosition(new T.Vector3())).normalize();
+  rotateWorld(bone,new T.Quaternion().setFromUnitVectors(from,direction.normalize()));
+ }
+ if([68,282,448].includes(id)){
+  for(const side of ['L','R'])for(const suffix of (id===68?['','2']:[''])){
+   const arm=side+'Arm'+suffix,elbow=side+'ForeArm'+suffix,hand=side+'Hand'+suffix;
+   const shoulder=model.getObjectByName(arm),wrist=model.getObjectByName(hand);
+   if(!shoulder||!wrist)continue;
+   const outward=Math.sign(wrist.getWorldPosition(new T.Vector3()).x-shoulder.getWorldPosition(new T.Vector3()).x)||1;
+   const guard=id!==282&&!suffix;
+   aim(arm,elbow,new T.Vector3(outward*(guard ? .76 : .40),-.92,guard ? .33 : .12));
+   aim(elbow,hand,new T.Vector3(outward*(guard ? -.18 : .20),guard ? .48 : -.53,.9));
+  }
+ }
+ if(id===384){
+  const bend=(name,axis,angle)=>{const bone=model.getObjectByName(name);if(bone)rotateWorld(bone,new T.Quaternion().setFromAxisAngle(axis,angle))};
+  const up=new T.Vector3(0,1,0),across=new T.Vector3(1,0,0);
+  bend('Spine1',across,-.85);bend('Spine2',across,-.50);bend('Neck1',up,.38);bend('Neck2',across,.88);
+  for(let i=1;i<=15;i++){bend('Tail'+i,up,i<10 ? .40 : -.20);bend('Tail'+i,across,i<7 ? .22 : -.12)}
+ }
+}
 // Measure the silhouette in the battle camera, so a long tail or deep wingspan
 // does not shrink the whole fighter. Keep the full silhouette inside its lane.
 function battleScale(model,yaw,camera){
@@ -99,12 +131,13 @@ export function createStadium(field){
    base.name='fighter-'+i;
    const mixer=new T.AnimationMixer(model);
    const airIdle=flying&&gltf.animations.find(a=>/flywait|fly(?:ing)?.*idle|fly(?:ing)?.*loop|wingflap/i.test(a.name));
-   const idle=airIdle||gltf.animations.find(a=>/battlewait/i.test(a.name))||gltf.animations.find(a=>/idle.*loop|defaultwait|standing|^idle$/i.test(a.name));
+   const idle=airIdle||gltf.animations.find(a=>/battlewait/i.test(a.name))||gltf.animations.find(a=>/idle.*loop|defaultwait|standing|(?:^|[|_\d])idle$/i.test(a.name));
    if(idle)mixer.clipAction(idle).play();mixer.update(0);
    // The pinned Pikachu export is Z-up. Keep its cheeks and ears upright in this Y-up arena.
    if(id===25)model.children[0].rotateX(-Math.PI/2);
    // Eevee's rest pose pitches its nose into the ground. Correct it before measuring the model.
    if(id===133)model.rotation.x=-.52;
+   if(!idle)poseStaticRig(model,id);
    model.traverse(o=>{
     if(!o.isMesh)return;o.castShadow=true;
     if(id===6)for(const mat of [].concat(o.material)){
@@ -128,7 +161,10 @@ export function createStadium(field){
     }
    }
    model.position.sub(ground);pivot.scale.setScalar(scale);
-   const attack=id!==25&&gltf.animations.find(a=>/rangeattack01|attack01|impactrueno|attack|atacar/i.test(a.name));
+   const clips=id===25?[]:gltf.animations;
+   const melee=clips.find(a=>/(?:^|[_|\d])attack01(?:$|_loop)|fight_b$/i.test(a.name));
+   const ranged=clips.find(a=>/rangeattack01|fight_d$/i.test(a.name));
+   const attack=melee||ranged||clips.find(a=>/attack|atacar/i.test(a.name));
    const joints=[];
    if(!idle&&!attack)model.traverse(bone=>{
     if(!bone.isBone)return;
@@ -141,7 +177,7 @@ export function createStadium(field){
     joints.push({bone,rest:bone.quaternion.clone(),axis:name.startsWith('tail')?'y':name==='head'?'x':'z',
      amplitude:name==='head' ? .045:name.startsWith('tail') ? .21 : .13,sign:name.startsWith('r')?-1:1});
    });
-   slots[i]={base,model,pivot,mixer,idle,attack,scale,height:extent.y*scale,id,joints};
+   slots[i]={base,model,pivot,mixer,idle,attack,melee,ranged,scale,height:extent.y*scale,id,joints};
    scene.add(base);base.position.copy(pads[i]);base.position.y=.27;base.rotation.y=angles[i];
    field.dataset['mesh'+i]=String(id);resize();wake();
   }catch{
@@ -188,7 +224,7 @@ export function createStadium(field){
   attackClip?.stop();attackClip=null;action=a;if(!a)return;
   sparkMat.color.set(a.color);winner=-1;const s=slots[a.i];
   if(!still.matches&&s?.attack){
-   attackClip=s.mixer.clipAction(s.attack).reset().setLoop(T.LoopOnce,1);
+   attackClip=s.mixer.clipAction((a.travel?s.melee:s.ranged)||s.attack).reset().setLoop(T.LoopOnce,1);
    attackClip.paused=true;attackClip.play();
   }
  }
@@ -215,7 +251,7 @@ export function createStadium(field){
    shadows[i].scale.setScalar(factors[i]);
    if(!still.matches){
     if(action?.i===i&&attackClip){
-     attackClip.time=action.t*s.attack.duration;
+     attackClip.time=action.t*attackClip.getClip().duration;
      attackClip.setEffectiveWeight(clamp((1-action.t)/.23));
     }
     s.mixer.update(dt*rate);
@@ -241,7 +277,14 @@ export function createStadium(field){
       s.base.rotation.y+=dir*(.29*drive-.20*load);
       s.base.rotation.x=.13*drive-.09*load;
       s.base.rotation.z=dir*-.055*drive;
-      if(action.style==='lightning'){
+      if(action.style==='leap'){
+       s.base.position.y+=.95*Math.sin(Math.PI*clamp((t-.18)/.35));s.base.rotation.x+=.22*drive;
+      }else if(action.style==='punch'||action.style==='fang'){
+       s.base.rotation.y+=dir*(action.style==='punch' ? .48 : .22)*drive;
+       s.base.rotation.x+=.25*drive;
+      }else if(action.style==='quake'){
+       s.base.position.y+=.42*load;s.base.scale.y*=1-.13*drive;
+      }else if(action.style==='lightning'){
        s.base.position.y+=.29*drive;s.base.scale.y*=1-.08*load;
       }else if(action.style==='flame'){
        s.base.rotation.x+=.17*drive-.13*load;

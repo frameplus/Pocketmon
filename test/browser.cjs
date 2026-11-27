@@ -11,6 +11,7 @@ try{
  await require('./team-rooms.cjs')(browser,url);
  await require('./team-finisher.cjs')(browser,url);
  await require('./elemental-fighters.cjs')(browser,url);
+ await require('./signature-actions.cjs')(browser,url);
  await require('./stadium.cjs')(browser,url);
  await require('./transitions.cjs')(browser,url);
  await require('./entrance.cjs')(browser,url);

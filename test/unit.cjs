@@ -45,6 +45,7 @@ test('all cached forms match simulator HP and yield valid battle replays',()=>{
  for(const p of d.pokemon){
   const pair=[p,by.get(1+(p.dex*37)%1025)],ids=pair.map(x=>x.id);
   const result=sim.simulate(ids,{seed});
+  assert.deepEqual(result.events.filter(e=>e.finisher).map(e=>e.i).sort(),[0,1],p.name+' and opponent each get one special');
   assert.deepEqual(result.initial,pair.map(G.hp));
   assert.ok(result.events.at(-1).round>=3,'both fighters get opening turns');
   assert.ok(result.events.filter(e=>e.kind==='move').length>1);
@@ -79,21 +80,18 @@ test('prediction and playback resolve the same paced battle, including multi-hit
  const strike=clash.events.find(e=>e.damage>0);
  assert.ok(strike&&strike.damage<=Math.floor(strike.max[strike.j]*.32));
 });
-test('occasional finishers are recorded once per duel on a connected damaging attack',()=>{
+test('both fighters use one reproducible special, respecting damage caps and immunity',()=>{
  const moves=(ids,seed,record=true)=>sim.simulate(ids,{seed,record});
- let count=0;
  for(let i=1;i<=72;i++){
   const ids=[25,6],seed=[i,15,5,15+i],result=moves(ids,seed);
   const special=result.events.filter(e=>e.finisher);
-  assert.ok(special.length<=1);
-  if(!special.length)continue;
-  count++;
-  const [hit]=special;
-  assert.ok(hit.kind==='move'&&hit.round>=2&&hit.damage>0&&hit.damage<=Math.floor(hit.max[hit.j]*.32));
+  assert.deepEqual(special.map(e=>e.i).sort(),[0,1]);
+  for(const hit of special)assert.ok(hit.kind==='move'&&hit.damage>0&&hit.damage<=Math.floor(hit.max[hit.j]*.32));
   assert.equal(result.winner,moves(ids,seed,false).winner);
   assert.deepEqual(special,moves(ids,seed).events.filter(e=>e.finisher));
  }
- assert.ok(count>0&&count<72);
+ const blocked=fixture([25,27],[[85],[33]]).simulate([25,27],{seed}).events.find(e=>e.finisher&&e.i===0);
+ assert.equal(blocked.effect,'immune');assert.equal(blocked.damage,0);
 });
 test('Magikarp only uses its chosen game learnset; forecast plays that battle',()=>{
  assert.deepEqual(by.get(129).moves,[33,175,150]);assert.equal(by.get(129).learnsetGroup,25);
@@ -132,7 +130,7 @@ test('daily visits are distinct by browser, persisted on restart, and roll over 
 });
 
 test('children’s recap uses the resolved move, defender type, turn and real damage',()=>{
- const ids=[25,7],pair=ids.map(id=>by.get(id)),r=sim.simulate(ids,{seed});
+ const ids=[25,7],pair=ids.map(id=>by.get(id)),r=fixture(ids,[[85],[58]]).simulate(ids,{seed});
  const hit=r.events[0];assert.equal(hit.matchup.factor,2);
  const ko=G.explain(r,pair,d),en=G.explain(r,pair,d,'en');
  assert.ok(ko[0].includes('10만볼트')&&ko[0].includes('전기')&&ko[0].includes('물 타입')&&ko[0].includes('2배')&&ko[0].includes(String(hit.damage)));

@@ -49,6 +49,7 @@ const Game=(()=>{
  }
  const effect=(t,p,d)=>p.types.reduce((v,j)=>v*d.chart[t-1][j-1],1);
  function describe(e,pair,d,en=false){
+   if(e.kind==='signature')return pair[e.i].name+(en?' gathered its power!':'의 필살기! 온몸에 힘을 모았어!');
    const p=pair[e.i].name,move=d.moves[e.move],name=move?(en?move.en:move.name):(en?'a move':'기술');
    if(e.kind==='cant')return en?p+' could not move this turn.':p+'는 이번 차례에 움직이지 못했어.';
    if(e.kind==='heal')return en?p+' recovered '+e.damage+' HP.':p+'의 HP가 '+e.damage+' 회복됐어.';
