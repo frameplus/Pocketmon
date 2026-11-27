@@ -222,10 +222,10 @@
   const highlights=long?events.filter((e,k)=>e.finisher||k<3||k>=events.length-4||k%Math.ceil(events.length/12)===0):events;
   for(const e of highlights){
    if(id!==epoch)return;if(playback.stopped)break;
-   const m=d.moves[e.move],description=G.describe(e,pair,d,en);
+   const m=e.kind==='signature'?{name:t('힘 모으기','Power Up'),type:pair[e.i].types[0],category:1}:d.moves[e.move],description=G.describe(e,pair,d,en);
    ArenaUI.progress(e.round);
    $('round').textContent=(long?t('주요 장면 · ','Highlights · '):'')+(en?'Turn '+e.round:e.round+'턴');
-   if(e.kind==='move'&&m){
+   if((e.kind==='move'||e.kind==='signature')&&m){
     $('log').textContent=en?`${pair[e.i].name} used ${m.name}!`:`${pair[e.i].name}의 ${m.name}!`;
     await combat.play(e,m,{attacker:pair[e.i],typeName:types[e.matchup?.type||m.type],rate:()=>playback.rate,impact(){
      if(id===epoch){

@@ -40,16 +40,21 @@ function makeSimulator(data) {
     const battle=start(ids,seed);
     try {
       const active = () => battle.sides.map(s=>s.active[0]||s.pokemon[0]);
-      // Two of six outcomes charge one side. Forecast and replay take the same draw.
-      const finisher={side:battle.random(6)};
-      active().forEach(p=>applyJuniorRules(p,finisher));
+      // Each fighter charges independently. Forecasts use the same damage rules.
+      const spent=[false,false];
+      const priorMoves=[null,null];
+      active().forEach(p=>applyJuniorRules(p,spent));
       const initial = active().map(p=>p.maxhp), events=[];
       let hp=active().map(p=>p.hp), max=initial.slice();
       const contexts=record?observeHits(battle):null;
       for(let round=1;!battle.ended && round<=100;round++){
         const cursor=battle.log.length;
         if(record) contexts.clear();
-        const choices=battle.sides.map((side,i)=>choice(side,active()[1-i]));
+        const choices=battle.sides.map((side,i)=>{
+          const selected=choice(side,active()[1-i],priorMoves[i]);
+          priorMoves[i]=side.active[0].lastMove?.id;
+          return selected;
+        });
         battle.makeChoices(...choices);
         if(record){
           const rendered=readTurn(battle.log.slice(cursor),round,hp,max,contexts,cursor);
@@ -59,6 +64,14 @@ function makeSimulator(data) {
         }
       }
       const winner=['side0','side1'].indexOf(battle.winner);
+      if(record)for(const side of [0,1]){
+        const turns=events.filter(e=>e.i===side&&e.kind==='move'&&data.moves[e.move]);
+        if(turns.some(e=>e.finisher))continue;
+        // An immune opponent, an interrupted fighter or a status-only set still gets a cut-in.
+        const turn=turns.find(e=>e.round>=2&&e.damage>0)||turns.find(e=>e.damage>0)||turns.find(e=>e.round>=2)||turns[0];
+        if(turn)turn.finisher=true;
+        else events.unshift({i:side,j:1-side,kind:'signature',move:0,round:1,damage:0,finisher:true,hp:initial.slice(),max:initial.slice()});
+      }
       return {winner,initial,events,capped:!battle.ended};
     } finally { battle.destroy(); }
   }
@@ -71,7 +84,7 @@ function makeSimulator(data) {
 }
 
 // Resolve accuracy, type, stats, abilities and criticals in Showdown first.
-function applyJuniorRules(pokemon,finisher){
+function applyJuniorRules(pokemon,spent){
   const original=pokemon.damage;
   let turn=-1,remaining=0;
   pokemon.damage=function(amount,source,effect){
@@ -84,12 +97,12 @@ function applyJuniorRules(pokemon,finisher){
     const knee=this.maxhp*.20;
     const paced=effect?.effectType==='Move'?Math.min(amount,knee)+Math.max(0,amount-knee)*.30:amount;
     const ordinary=Math.min(remaining,Math.max(1,Math.floor(paced)));
-    const charged=turn>=2&&source&&source.side!==this.side&&source.side.n===finisher.side&&
+    const charged=turn>=2&&source&&source.side!==this.side&&!spent[source.side.n]&&
       effect?.effectType==='Move'&&effect.basePower>0&&effect.id===this.battle.activeMove?.id;
     const boosted=charged?Math.min(remaining,ordinary+Math.max(1,Math.floor(ordinary*.25))):ordinary;
     const actual=original.call(this,boosted,source,effect);
-    if(charged&&actual>ordinary){
-      finisher.side=-1;
+    if(charged&&actual>0){
+      spent[source.side.n]=true;
       this.battle.add('-arena-finisher',source);
     }
     remaining-=actual;
@@ -98,7 +111,7 @@ function applyJuniorRules(pokemon,finisher){
 }
 
 // Both forecast and play use the same policy. The simulator resolves the actual effects.
-function choice(side,foe){
+function choice(side,foe,priorMove){
   const user=side.active[0], options=side.activeRequest?.active?.[0]?.moves;
   if(!options?.length)return 'default';
   let best=-Infinity,index=-1;
@@ -124,7 +137,8 @@ function choice(side,foe){
       const immuneAbility=!m.ignoreAbility && (foe.hasAbility('wonderguard')&&matchup<=1 || m.type==='Ground'&&foe.hasAbility('levitate') || m.type==='Water'&&foe.hasAbility(['waterabsorb','stormdrain','dryskin']) || m.type==='Electric'&&foe.hasAbility(['voltabsorb','lightningrod','motordrive']) || m.type==='Fire'&&foe.hasAbility(['flashfire','wellbakedbody']) || m.type==='Grass'&&foe.hasAbility('sapsipper'));
       score=immuneAbility?0:(power*stat*matchup*(user.hasType(m.type)?1.5:1)*accuracy);
       // When another good move is available, vary the next attack.
-      if(user.lastMove?.id===m.id)score*=.80;
+      if(user.lastMove?.id===m.id)score*=.62;
+      else if(priorMove===m.id)score*=.82;
       if(m.priority>0&&score>0&&score*.44+2>=foe.hp)score+=150;
     }
     if(score>best){best=score;index=i}

@@ -6,6 +6,17 @@ function createCombat(field,world,elements){
  const label=field.querySelector('.move-call'),points=field.querySelector('.hit-points');
  const radiant={3:'air',10:'flame',11:'water',13:'lightning',12:'leaves',15:'ice',14:'pulse',16:'pulse',8:'pulse',18:'pulse'};
  const contact={33:'rush',98:'rush',231:'tail',163:'slash',337:'slash',404:'slash',421:'slash',348:'slash',400:'slash'};
+ function technique(move,id,type){
+  const name=move.en||'';
+  if(/quake|earth power|stomping tantrum/i.test(name))return 'quake';
+  if(/punch|hammer arm|mach strike/i.test(name))return 'punch';
+  if(/kick|body slam|heavy slam|stomp/i.test(name))return 'leap';
+  if(/fang|bite|crunch/i.test(name))return 'fang';
+  if(/sphere|shadow ball|energy ball|sludge bomb|electro ball/i.test(name))return 'orb';
+  if(/voice|sound wave|boomburst|uproar/i.test(name))return 'echo';
+  if(/tail/i.test(name))return 'tail';
+  return contact[id]||(move.category===2?'rush':radiant[type]||'bolt');
+ }
  const cutin=document.createElement('div');
  cutin.className='special-cutin';cutin.hidden=true;
  cutin.innerHTML='<img alt=""><div><small></small><strong></strong></div>';
@@ -22,7 +33,7 @@ function createCombat(field,world,elements){
   const connects=e.damage>0,deflected=e.effect==='immune',miss=e.effect==='miss';
   const type=e.matchup?.type||m.type,color=Game.colors[type];
   const style=e.effect==='prepare'||m.category===1||e.effect==='fail'?'focus':
-    contact[e.move]||(m.category===2?'rush':radiant[type]||'bolt');
+    technique(m,e.move,type);
   const fieldRect=field.getBoundingClientRect(),width=900,height=width*fieldRect.height/fieldRect.width;
   const dpr=Math.min(2,window.devicePixelRatio||1);
   canvas.width=Math.round(fieldRect.width*dpr);canvas.height=Math.round(fieldRect.height*dpr);
@@ -40,8 +51,8 @@ function createCombat(field,world,elements){
   }
   let [src,dest]=marks();
   let dx=dest[0]-src[0],dy=dest[1]-src[1],dist=Math.hypot(dx,dy);
-  const special=Boolean(e.finisher&&connects),direction=Math.sign(dx),motion=[];
-  const travel=['rush','slash','tail'].includes(style)&&!deflected;
+  const special=Boolean(e.finisher),direction=Math.sign(dx),motion=[];
+  const travel=['rush','slash','tail','leap','punch','fang'].includes(style)&&!deflected;
   const duration=reduced?460:travel?900:1040;
   const intro=special&&!reduced?540:0,hold=special&&!reduced?95:0;
   const arrival=.53;
@@ -69,6 +80,7 @@ function createCombat(field,world,elements){
   const windup=direction*-9;
   animate(imgs[0],[
    {translate:'0 0',offset:0},{translate:windup+'px 3px',scale:style==='lightning'?'1.10 .85':'.96 1.03',offset:.2},
+   ...(style==='leap'?[{translate:pixelX*.42+'px '+(pixelY*.4-fieldRect.height*.15)+'px',rotate:direction*9+'deg',offset:.37}]:[]),
    {translate:travel?(pixelX*.81)+'px '+(pixelY*.8)+'px':direction*9+'px -3px',scale:travel?(e.i?'1.12':'.9'):'1.03',offset:.51},
    {translate:'0 0',scale:'1',offset:.94},{translate:'0 0',scale:'1',offset:1}
   ],{duration});
@@ -142,6 +154,19 @@ function createCombat(field,world,elements){
      ctx.fillStyle=style==='ice'?'#beffff':'#a0eb55';ctx.strokeStyle=style==='ice'?'#4baad8':'#4e9439';ctx.lineWidth=2;
      ctx.beginPath();ctx.moveTo(-12,0);ctx.lineTo(0,-5);ctx.lineTo(13,0);ctx.lineTo(0,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
     }
+   }else if(style==='orb'&&lead>0&&fade>0){
+    const x=dist*lead,r=special?22:15;dot(x,0,r,color);dot(x-r*.18,-r*.12,r*.51,'#fff');
+    for(let i=0;i<3;i++)crescent(x,0,r+4+i*3,i%2?color:'#fffada',t*14+i*2.1);
+   }else if((style==='echo'||style==='quake')&&lead>0&&fade>0){
+    for(let i=0;i<4;i++){
+     const x=dist*lead-i*30;if(x<0)continue;
+     if(style==='echo'){
+      ctx.strokeStyle=i%2?'#fff':color;ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(x,0,10+i*2,23+i*3,0,-1.5,1.5);ctx.stroke();
+     }else{
+      const y=18+Math.sin(i*3)*6;stroke([[x-24,y],[x-8,y-7],[x-12,y+3],[x+4,y-3]],'#734530',6);
+      dot(x,y-12-10*Math.sin(t*9+i),4+i,color);
+     }
+    }
    }else if((style==='pulse'||style==='bolt')&&lead>0&&fade>0){
     for(let i=0;i<6;i++){const x=dist*lead-12*i;if(x<0)continue;ctx.globalAlpha=fade*(1-i/7);dot(x,Math.sin(i+t*14)*4,17-i*1.8,color)}
     dot(dist*lead,0,7,'#fff');
@@ -157,6 +182,10 @@ function createCombat(field,world,elements){
      stroke([[r*Math.cos(angle),r*Math.sin(angle)],[(r+12)*Math.cos(angle),(r+12)*Math.sin(angle)]],i%2?'#fffbd2':color,3+i%3)}
     if(style==='slash'){for(let i=-1;i<=1;i++)stroke([[i*12-18,22],[i*12+19,-23]],'#fff7db',5)}
     if(style==='tail')crescent(-8,0,34+burst*21,'#c7f4ff',-.9+burst*1.6);
+    if(style==='fang')for(const s of [-1,1])for(const x of [-15,0,15]){
+     const y=s*(9+burst*18);stroke([[x-4,y+s*9],[x,y],[x+4,y+s*8]],'#fff9dd',4);
+    }
+    if(style==='punch'||style==='leap')for(let i=0;i<6;i++){const a=i*Math.PI/3;ctx.save();ctx.rotate(a);stroke([[12,0],[37+burst*26,-6],[30,2]],color,4);ctx.restore()}
     if(style==='lightning'||style==='flame'||special){
      const radius=13+burst*(special?94:56);
      ctx.strokeStyle=style==='flame'?'#ffbb52':style==='lightning'?'#fff282':color;ctx.lineWidth=(1-burst)*5+1;
