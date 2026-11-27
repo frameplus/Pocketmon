@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {createStrikeRig,strikeBeat} from './strike-rig.js';
 import {GLTFLoader} from '/vendor/three/examples/jsm/loaders/GLTFLoader.js';
 import {DRACOLoader} from '/vendor/three/examples/jsm/loaders/DRACOLoader.js';
 
@@ -85,7 +86,7 @@ export function createStadium(field){
  const sideAxis=new T.Vector3(1,0,0),forwardAxis=new T.Vector3(0,0,1);
  const shadows=pads.map(p=>{const s=new T.Mesh(new T.PlaneGeometry(2.6,2),new T.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false}));
   s.rotation.x=-Math.PI/2;s.position.set(p.x,.269,p.z);scene.add(s);return s});
- let visible=false,frame=0,last=0,phase='',releaseImages=[],action=null,attackClip=null,winner=-1,victoryTime=0,stopped=false;
+ let visible=false,frame=0,last=0,phase='',releaseImages=[],action=null,attackClip=null,hitClip=null,winner=-1,victoryTime=0,stopped=false;
  function resize(){
   const w=field.clientWidth,h=field.clientHeight;if(!w||!h)return;
   renderer.setSize(w,h,false);
@@ -177,7 +178,15 @@ export function createStadium(field){
     joints.push({bone,rest:bone.quaternion.clone(),axis:name.startsWith('tail')?'y':name==='head'?'x':'z',
      amplitude:name==='head' ? .045:name.startsWith('tail') ? .21 : .13,sign:name.startsWith('r')?-1:1});
    });
-   slots[i]={base,model,pivot,mixer,idle,attack,melee,ranged,scale,height:extent.y*scale,id,joints};
+   const damage=clips.find(a=>/(?:^|[_|\d])(?:damage|hurt|flinch)(?:0?1)?$/i.test(a.name));
+   const rig=!attack?createStrikeRig(model):null;
+   const sockets={};
+   model.traverse(b=>{
+    if(!b.isBone)return;
+    const key=b.name.toLowerCase().replace(/_\d+$/,'');
+    if(['jaw','lhand','rhand','left_hand','right_hand'].includes(key))sockets[key]=b;
+   });
+   slots[i]={base,model,pivot,mixer,idle,idleAction:idle?mixer.clipAction(idle):null,attack,damage,rig,sockets,melee,ranged,scale,height:extent.y*scale,id,joints};
    scene.add(base);base.position.copy(pads[i]);base.position.y=.27;base.rotation.y=angles[i];
    field.dataset['mesh'+i]=String(id);resize();wake();
   }catch{
@@ -195,6 +204,14 @@ export function createStadium(field){
  const wave=new T.Mesh(new T.RingGeometry(.83,1,48),new T.MeshBasicMaterial({transparent:true,depthWrite:false,side:T.DoubleSide}));
  wave.rotation.x=-Math.PI/2;wave.visible=false;scene.add(wave);
  const sparks=new T.Group(),sparkMat=new T.MeshBasicMaterial(),sparkShape=new T.OctahedronGeometry(.065);
+ const emission=new T.Vector3(),secondHand=new T.Vector3();
+ function emitter(side,style){
+  const sockets=slots[side]?.sockets;if(!sockets)return null;
+  if(style==='flame'&&sockets.jaw)return sockets.jaw.getWorldPosition(emission);
+  const l=sockets.lhand||sockets.left_hand,r=sockets.rhand||sockets.right_hand;
+  if(style==='orb'&&l&&r)return l.getWorldPosition(emission).lerp(r.getWorldPosition(secondHand),.5);
+  return null;
+ }
  for(let i=0;i<8;i++)sparks.add(new T.Mesh(sparkShape,sparkMat));
  sparks.visible=false;scene.add(sparks);
  function paintSparks(){
@@ -214,6 +231,8 @@ export function createStadium(field){
   sparks.visible=t>=.18&&t<.89&&(!travel||t>=.53);if(!sparks.visible)return;
   const h0=((slots[i]?.height||2.3)*factors[i])*.57+source.y,h1=((slots[1-i]?.height||2.3)*factors[1-i])*.57+dest.y;
   sparks.position.set(T.MathUtils.lerp(source.x,dest.x,v),T.MathUtils.lerp(h0,h1,v),T.MathUtils.lerp(source.z,dest.z,v));
+  const muzzle=emitter(i,action.style);
+  if(muzzle)sparks.position.set(T.MathUtils.lerp(muzzle.x,dest.x,v),T.MathUtils.lerp(muzzle.y,h1,v),T.MathUtils.lerp(muzzle.z,dest.z,v));
   sparks.children.forEach((s,k)=>{
    const angle=k*Math.PI/4+t*7,r=.12+impact*.75;
    s.position.set(r*Math.cos(angle),r*Math.sin(angle),Math.sin(angle*2)*r*.5);
@@ -221,16 +240,22 @@ export function createStadium(field){
   });
  }
  function move(a){
-  attackClip?.stop();attackClip=null;action=a;if(!a)return;
+  attackClip?.stop();hitClip?.stop();attackClip=hitClip=null;
+  slots.forEach(s=>s?.idleAction?.setEffectiveWeight(1));action=a;if(!a)return;
   sparkMat.color.set(a.color);winner=-1;const s=slots[a.i];
   if(!still.matches&&s?.attack){
    attackClip=s.mixer.clipAction((a.travel?s.melee:s.ranged)||s.attack).reset().setLoop(T.LoopOnce,1);
    attackClip.paused=true;attackClip.play();
   }
+  const target=slots[1-a.i];
+  if(!still.matches&&a.connects&&target?.damage){
+   hitClip=target.mixer.clipAction(target.damage).reset().setLoop(T.LoopOnce,1);
+   hitClip.paused=true;hitClip.setEffectiveWeight(0).play();
+  }
  }
  function render(time){
   frame=0;if(stopped||!visible||document.hidden)return;
-  if(last&&time-last<(still.matches?80:26)){frame=requestAnimationFrame(render);return}
+  if(last&&time-last<(still.matches?80:action?0:26)){frame=requestAnimationFrame(render);return}
   const dt=Math.min((time-(last||time))/1000,.075);last=time;
   wingTime+=dt*rate;
   const next=field.dataset.scene;if(next!==phase){
@@ -238,6 +263,7 @@ export function createStadium(field){
    if(next==='release'||next==='throw')winner=-1;
   }
   if(winner>=0)victoryTime+=dt*rate;
+  const beat=action?strikeBeat(action.t):null;
   slots.forEach((s,i)=>{
    if(!s){shadows[i].visible=false;return}
    const from=pads[i],other=pads[1-i];s.base.position.copy(from);s.base.position.y=.275;
@@ -248,33 +274,41 @@ export function createStadium(field){
    s.base.visible=phase!=='throw'&&size>.061;shadows[i].visible=s.base.visible;
    if(phase==='release')s.base.position.y+=(1-size)*s.height*factors[i]*.57;
    s.base.scale.setScalar(Math.max(.001,size)*factors[i]);
+   s.rig?.rest();
    shadows[i].scale.setScalar(factors[i]);
    if(!still.matches){
     if(action?.i===i&&attackClip){
      attackClip.time=action.t*attackClip.getClip().duration;
-     attackClip.setEffectiveWeight(clamp((1-action.t)/.23));
+     const weight=Math.min(clamp(action.t/.12),clamp((1-action.t)/.21));
+     attackClip.setEffectiveWeight(weight);s.idleAction?.setEffectiveWeight(1-weight);
+    }else if(action&&i!==action.i&&hitClip){
+     hitClip.time=clamp((action.t-.53)/.42)*hitClip.getClip().duration;
+     hitClip.setEffectiveWeight(beat.recoil);s.idleAction?.setEffectiveWeight(1-beat.recoil);
     }
     s.mixer.update(dt*rate);
-    const beat=time*.0043+i*2.2,step=(1-Math.cos(beat))*.5;
+    const idlePhase=time*.0043+i*2.2,step=(1-Math.cos(idlePhase))*.5;
     s.base.position.y+=step*(s.idle ? .025 : .09);
-    s.base.position.x+=Math.sin(beat)*.055;
-    s.base.rotation.y+=Math.sin(beat*.5)*.085;
+    s.base.position.x+=Math.sin(idlePhase)*.055;
+    s.base.rotation.y+=Math.sin(idlePhase*.5)*.085;
     for(const joint of s.joints){
-     const swing=joint.wing?Math.sin(wingTime*9)*(.22+clamp(flight[i].lift*12)*.78):Math.sin(beat+.7);
+     const swing=joint.wing?Math.sin(wingTime*9)*(.22+clamp(flight[i].lift*12)*.78):Math.sin(idlePhase+.7);
      joint.bone.quaternion.copy(joint.rest);
      joint.bone.rotateOnAxis(joint.axis==='y'?T.Object3D.DEFAULT_UP:joint.axis==='x'?sideAxis:forwardAxis,swing*joint.amplitude*joint.sign);
     }
     if(action){
      const t=action.t,dir=i?-1:1;
+     if(i===action.i||!hitClip)s.rig?.apply(action,i===action.i,beat);
      if(i===action.i){
-      const load=Math.sin(Math.PI*clamp(t/.31));
-      const drive=Math.sin(Math.PI*clamp((t-.21)/.65));
-      const stride=action.travel ? .65 : action.style==='lightning' ? .19 : .16;
-      s.base.position.x+=(other.x-from.x)*stride*drive-dir*.31*load;
-      s.base.position.z+=(other.z-from.z)*stride*drive;
-      s.base.position.y+=drive*(action.travel ? .46 : .24);
+      const load=beat.gather,drive=beat.extend;
+      const dx=other.x-from.x,dz=other.z-from.z,gap=Math.hypot(dx,dz);
+      const contactSpace=.30*(s.height*factors[i]+(slots[1-i]?.height||2)*factors[1-i]);
+      const stride=action.travel?T.MathUtils.clamp(1-contactSpace/Math.max(.1,gap),.57,.92):action.style==='lightning' ? .19 : .16;
+      s.base.position.x+=dx*stride*beat.step-dir*.29*load;
+      s.base.position.z+=dz*stride*beat.step;
+      s.base.position.y+=action.travel ? .27*beat.outbound+.26*beat.returning : .13*drive;
       s.base.scale.x*=1+.045*load;s.base.scale.y*=1-.10*load;s.base.scale.z*=1+.045*load;
-      s.base.rotation.y+=dir*(.29*drive-.20*load);
+      const facing=Math.atan2(dx,dz);
+      s.base.rotation.y+=(facing-angles[i])*(action.travel ? .88 : .48)*drive-dir*.19*load;
       s.base.rotation.x=.13*drive-.09*load;
       s.base.rotation.z=dir*-.055*drive;
       if(action.style==='leap'){
@@ -292,11 +326,13 @@ export function createStadium(field){
       }else if(action.style==='tail'){
        s.base.rotation.y+=dir*1.35*Math.sin(2*Math.PI*clamp((t-.18)/.69));
       }
-     }else if(t>=.53){
-      const bump=Math.sin(Math.PI*clamp((t-.53)/.41));
-      s.base.position.x-=dir*bump*(action.special ? .62 : action.connects ? .43 : .18);
-      s.base.position.y+=bump*(action.miss ? .39 : .20);
-      s.base.rotation.x=-.15*bump;
+     }else if(t>=.53&&(action.connects||action.miss)){
+      const bump=beat.recoil;
+      const distance=action.miss ? .10 : action.special ? .16 : .095;
+      s.base.position.x+=(from.x-other.x)*bump*distance;
+      s.base.position.z+=(from.z-other.z)*bump*distance;
+      s.base.position.y+=bump*(action.miss ? .39 : .16);
+      s.base.rotation.x=-.23*bump;
      }
     }
    }
@@ -311,6 +347,10 @@ export function createStadium(field){
     s.pivot.rotation.z=air.bank;
     shadows[i].scale.multiplyScalar(1-air.lift*2.6);
    }else s.pivot.rotation.z=0;
+   if(beat&&s.rig&&!still.matches&&!air.lift){
+    const planted=i===action.i?Math.max(beat.gather,beat.extend*(1-beat.outbound)*(1-beat.returning)):beat.recoil;
+    s.rig.plant(s.base,factors[i],planted);
+   }
    shadows[i].position.x=s.base.position.x;shadows[i].position.z=s.base.position.z;
   });
   paintSparks();renderer.render(scene,camera);frame=requestAnimationFrame(render);
@@ -320,5 +360,5 @@ export function createStadium(field){
  document.addEventListener('visibilitychange',wake);
  field.dataset.world='on';
  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();stopped=true;cancelAnimationFrame(frame);delete field.dataset.world;delete field.dataset.mesh0;delete field.dataset.mesh1;observer.disconnect();sizeObserver.disconnect();requests.forEach(c=>c?.abort());document.removeEventListener('visibilitychange',wake)});
- return {select,move,anchors,setFlight(i,x,lift,bank){Object.assign(flight[i],{x,lift,bank})},setRate(value){rate=value},finish(side){winner=side;victoryTime=0;wake()}};
+ return {select,move,anchors,emissionMark(side,style){const p=emitter(side,style);return p&&projected(p)},setFlight(i,x,lift,bank){Object.assign(flight[i],{x,lift,bank})},setRate(value){rate=value},finish(side){winner=side;victoryTime=0;wake()}};
 }

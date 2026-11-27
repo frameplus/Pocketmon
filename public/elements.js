@@ -2,7 +2,8 @@
 
 // The ambient effects belong to the fighters. The projectile layer separately uses the move's resolved type.
 function createElementalStage(field,world){
- const canvas=document.createElement('canvas');canvas.className='element-fx';canvas.hidden=true;canvas.setAttribute('aria-hidden','true');field.append(canvas);
+ const stage=field.querySelector('.battle-camera')||field;
+ const canvas=document.createElement('canvas');canvas.className='element-fx';canvas.hidden=true;canvas.setAttribute('aria-hidden','true');stage.append(canvas);
  const ctx=canvas.getContext('2d'),reduce=matchMedia('(prefers-reduced-motion: reduce)');
  const tau=Math.PI*2,clamp=n=>Math.max(0,Math.min(1,n));
  const palette=[null,['#fff9dd','#d3bf91'],['#ffc088','#d54c2b'],['#edffff','#59bedb'],['#e6b7ff','#9931bb'],['#ffcd83','#b26b3f'],['#f1d7a8','#8a6a52'],['#dcff74','#76ab40'],['#d4baff','#714ac4'],['#effdff','#879cb9'],['#ffdc55','#ef481e'],['#91f4ff','#2581dc'],['#b9f779','#419755'],['#fff7a5','#edb521'],['#ffd2f2','#cf5ac3'],['#e0ffff','#5bb6d9'],['#cfc0ff','#6355c8'],['#c3b8e3','#493a62'],['#ffe3f4','#e474b4']];
@@ -120,7 +121,7 @@ function createElementalStage(field,world){
   const dt=Math.min((time-(last||time))/1000,.09)*rate();last=time;clock+=dt;
   const envelope=clamp(clock/.5)*(landing===null?1:1-clamp((clock-landing)/.40));
   if(landing!==null&&!envelope){stop();return}
-  const rect=field.getBoundingClientRect(),width=rect.width,height=rect.height;
+  const rect=stage.getBoundingClientRect(),width=stage.clientWidth,height=stage.clientHeight;
   if(!width||!height){stop();return}
   const dpr=Math.min(1.5,devicePixelRatio||1),w=Math.round(width*dpr),h=Math.round(height*dpr);
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;particles=[]}
@@ -128,10 +129,10 @@ function createElementalStage(field,world){
   const unit=Math.min(width,height*1.4)/390,marks=field.dataset.world==='on'?world()?.anchors(true):null;
   for(const f of fighters){
    const drive=action?.i===f.side?Math.sin(Math.PI*clamp((action.t-.14)/.75)):0;
-   if(f.flying)flight(f,drive,rect,envelope);
+   if(f.flying)flight(f,drive,{width,height},envelope);
    let x,y;
    if(marks&&field.dataset['mesh'+f.side]){x=marks[f.side][0]*width;y=marks[f.side][1]*height}
-   else{const b=f.img.getBoundingClientRect();x=b.left+b.width*.5-rect.left;y=b.top+b.height*.5-rect.top}
+   else{const b=f.img.getBoundingClientRect();x=(b.left+b.width*.5-rect.left)*width/rect.width;y=(b.top+b.height*.5-rect.top)*height/rect.height}
    const radius=(19+f.size*28)*unit;
    f.types.forEach((type,i)=>{
     wake(type,x,y,radius,drive,unit,f.dir);
