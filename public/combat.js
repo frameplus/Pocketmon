@@ -3,6 +3,7 @@
 // Draw in field coordinates so a technique travels between the same two marks on any screen.
 function createCombat(field,world,elements){
  const canvas=field.querySelector('.technique-fx'),ctx=canvas.getContext('2d');
+ const camera=field.querySelector('.battle-camera');
  const label=field.querySelector('.move-call'),points=field.querySelector('.hit-points');
  const radiant={3:'air',10:'flame',11:'water',13:'lightning',12:'leaves',15:'ice',14:'pulse',16:'pulse',8:'pulse',18:'pulse'};
  const contact={33:'rush',98:'rush',231:'tail',163:'slash',337:'slash',404:'slash',421:'slash',348:'slash',400:'slash'};
@@ -39,12 +40,16 @@ function createCombat(field,world,elements){
   canvas.width=Math.round(fieldRect.width*dpr);canvas.height=Math.round(fieldRect.height*dpr);
   const imgs=[e.i,e.j].map(i=>document.querySelector('#a'+i+' img'));
   function marks(){
+   const viewport=camera?.getBoundingClientRect()||fieldRect;
    const anchors=field.dataset.world==='on'?world()?.anchors(true):null;
    const pair=[e.i,e.j].map((side,k)=>{
-   if(anchors&&field.dataset['mesh'+side])return [anchors[side][0]*width,anchors[side][1]*height];
+   if(anchors&&field.dataset['mesh'+side]){
+    const p=(k===0&&world()?.emissionMark?.(side,style))||anchors[side];
+    return [p[0]*width,p[1]*height];
+   }
    const box=imgs[k].getBoundingClientRect();
-   return [(box.left+box.width*.5-fieldRect.left)*width/fieldRect.width,
-    (box.bottom-box.height*.5-fieldRect.top)*height/fieldRect.height];
+   return [(box.left+box.width*.5-viewport.left)*width/viewport.width,
+    (box.bottom-box.height*.5-viewport.top)*height/viewport.height];
   });
    if(miss){pair[1][0]+=e.i?-65:65;pair[1][1]-=height*.14}
    return pair;
@@ -54,7 +59,7 @@ function createCombat(field,world,elements){
   const special=Boolean(e.finisher),direction=Math.sign(dx),motion=[];
   const travel=['rush','slash','tail','leap','punch','fang'].includes(style)&&!deflected;
   const duration=reduced?460:travel?900:1040;
-  const intro=special&&!reduced?540:0,hold=special&&!reduced?95:0;
+  const intro=special&&!reduced?540:0,hold=!reduced&&connects?(special?105:travel?58:32):0;
   const arrival=.53;
   field.dataset.technique=style;field.dataset.phase='windup';canvas.hidden=false;
   label.textContent=m.name;label.dataset.side=e.i;label.style.setProperty('--element',color);label.hidden=false;
@@ -75,14 +80,30 @@ function createCombat(field,world,elements){
     anim.pause();anim.currentTime=0;motion.push({anim,start});
    }
   }
-  const pose={i:e.i,connects,miss,travel,duration,style,color,special,t:0};world()?.move(pose);elements.move(pose);
+  if(camera&&!reduced){
+   const zoom=special?1.23:travel?1.15:1.07;
+   camera.style.transformOrigin=(dest[0]/width*72+14)+'% '+(dest[1]/height*72+14)+'%';
+   animate(camera,[
+    {transform:'scale(1)',offset:0,easing:'ease-in-out'},
+    {transform:'scale('+zoom+')',offset:.50},
+    {transform:'translate('+(connects?direction*-2:0)+'px,0) scale('+zoom+')',offset:.55},
+    {transform:'scale('+zoom+')',offset:.61,easing:'ease-in-out'},
+    {transform:'scale(1)',offset:1}
+   ],{duration});
+  }
+  const pose={i:e.i,leadLeft:(e.round+e.i)%2===0,connects,miss,travel,duration,style,color,special,t:0};world()?.move(pose);elements.move(pose);
   const pixelX=dx*fieldRect.width/width,pixelY=dy*fieldRect.width/width;
   const windup=direction*-9;
+  const strike=travel?(pixelX*.81)+'px '+(pixelY*.8)+'px':direction*9+'px -3px';
+  const impactScale=travel?(e.i?'1.12':'.9'):'1.03';
   animate(imgs[0],[
-   {translate:'0 0',offset:0},{translate:windup+'px 3px',scale:style==='lightning'?'1.10 .85':'.96 1.03',offset:.2},
-   ...(style==='leap'?[{translate:pixelX*.42+'px '+(pixelY*.4-fieldRect.height*.15)+'px',rotate:direction*9+'deg',offset:.37}]:[]),
-   {translate:travel?(pixelX*.81)+'px '+(pixelY*.8)+'px':direction*9+'px -3px',scale:travel?(e.i?'1.12':'.9'):'1.03',offset:.51},
-   {translate:'0 0',scale:'1',offset:.94},{translate:'0 0',scale:'1',offset:1}
+   {translate:'0 0',rotate:'0deg',scale:'1',offset:0,easing:'ease-out'},
+   {translate:windup+'px 3px',rotate:direction*-7+'deg',scale:'1.06 .90',offset:.23,easing:'ease-in'},
+   ...(travel?[{translate:pixelX*.43+'px '+(pixelY*.42-fieldRect.height*(style==='leap' ? .15 : .045))+'px',rotate:direction*8+'deg',offset:.38,easing:'ease-out'}]:[]),
+   {translate:strike,rotate:direction*8+'deg',scale:impactScale,offset:.5},
+   {translate:strike,rotate:direction*5+'deg',scale:impactScale,offset:.6,easing:'ease-in-out'},
+   ...(travel?[{translate:pixelX*.31+'px '+(pixelY*.31-fieldRect.height*.04)+'px',rotate:direction*-4+'deg',offset:.82,easing:'ease-out'}]:[]),
+   {translate:'0 0',rotate:'0deg',scale:'1.04 .96',offset:.94},{translate:'0 0',rotate:'0deg',scale:'1',offset:1}
   ],{duration});
   const stroke=(pts,ink,size)=>{
    ctx.strokeStyle=ink;ctx.lineWidth=size;ctx.lineJoin='round';ctx.lineCap='round';
@@ -201,6 +222,7 @@ function createCombat(field,world,elements){
    let frame=0,landed=false,previousTime,elapsed=0;
    function done(){
     world()?.move(null);elements.move(null);cancelAnimationFrame(frame);motion.forEach(({anim})=>anim.cancel());label.hidden=true;points.hidden=true;canvas.hidden=true;
+    camera?.style.removeProperty('transform-origin');
     cutin.hidden=true;delete field.dataset.finisher;delete field.dataset.phase;delete field.dataset.technique;active=null;resolve();
    }
    active=done;
@@ -208,7 +230,7 @@ function createCombat(field,world,elements){
     // After a stalled frame or a backgrounded tab, keep the approach and impact visible.
     elapsed+=Math.min(time-(previousTime??time),80)*rate();previousTime=time;
     const actionTime=Math.max(0,elapsed-intro);
-    const visualTime=actionTime-Math.min(hold,Math.max(0,actionTime-duration*(arrival+.045)));
+    const visualTime=actionTime-Math.min(hold,Math.max(0,actionTime-duration*(arrival+.018)));
     const t=clamp(visualTime/duration);
     if(!cutin.hidden){
      cutin.style.opacity=String(clamp((intro+90-elapsed)/120));

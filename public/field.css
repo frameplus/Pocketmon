@@ -4,6 +4,7 @@
   aspect-ratio:1.58; min-height:220px; isolation:isolate; container-type:inline-size;
   background:#a4cd82; border-block:1px solid #a8c692;
 }
+.battle-camera {position:absolute;inset:0;pointer-events:none}
 .meadow { position:absolute; inset:-2%; background:#a4cd82 url('/stage/bg-meadow.png') center / 100% 100%; }
 #battlefield::after { content:''; position:absolute; z-index:5; pointer-events:none; inset:0;
   background:linear-gradient(0deg,#273c3737,transparent 21%,transparent 80%,#eefbe119); }
