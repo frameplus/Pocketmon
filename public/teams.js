@@ -98,10 +98,64 @@
   if(!matches.length)$('choices').textContent=t('이름이나 도감 번호를 다시 입력해 줘.','Try a different name or Pokédex number.');
  }
  function pick(s,i){
+  stopListening();
   editing=[s,i];$('pick-title').textContent=t((i+1)+'번 포켓몬 선택','Choose Pokémon '+(i+1));
   $('query').value='';choices();$('picker').showModal();$('query').focus();
  }
- $('query').oninput=choices;
+ let recognition=null;
+ const mic=$('pick-mic'),hint=$('mic-status');
+ function stopListening(){
+  const current=recognition;
+  recognition=null;
+  if(current)current.abort();
+  mic.setAttribute('aria-pressed','false');
+  hint.textContent='';
+ }
+ mic.onclick=()=>{
+  if(recognition){stopListening();return}
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!Recognition||!window.isSecureContext){
+   hint.textContent=t('마이크를 쓰려면 Chrome에서 열어 줘. 이름을 입력해도 돼.','Open in Chrome to use the mic, or type a name.');
+   return;
+  }
+  const session=new Recognition();
+  recognition=session;
+  session.lang=en?'en-US':'ko-KR';
+  session.maxAlternatives=5;
+  mic.setAttribute('aria-pressed','true');
+  hint.textContent=t('마이크 연결 중…','Connecting microphone…');
+  session.onstart=()=>{
+   if(recognition===session)hint.textContent=t('듣고 있어! 포켓몬 이름을 말해 줘.','Listening! Say a Pokémon name.');
+  };
+  let answered=false;
+  session.onresult=event=>{
+   if(recognition!==session||!$('picker').open)return;
+   const words=Array.from(event.results[event.resultIndex],alt=>alt.transcript.trim()).filter(Boolean);
+   if(!words.length)return;
+   const found=words.map(word=>Game.heard(idx,word)[0]).find(Boolean);
+   $('query').value=found?name(found.id):words.find(word=>Game.search(idx,word,1).length)||words[0];
+   choices();answered=true;
+   hint.textContent=t('들은 말 · ','Heard · ')+words[0];
+  };
+  session.onerror=event=>{
+   if(recognition!==session)return;
+   answered=true;
+   hint.textContent=['not-allowed','service-not-allowed'].includes(event.error)
+    ?t('사이트 설정에서 마이크를 허용해 줘.','Allow microphone access in site settings.')
+    :t('잘 들리지 않았어. 다시 말하거나 이름을 입력해 줘.','Try speaking again, or type a name.');
+  };
+  session.onend=()=>{
+   if(recognition!==session)return;
+   recognition=null;mic.setAttribute('aria-pressed','false');
+   if(!answered)hint.textContent=t('다시 눌러서 이름을 말해 줘.','Tap again and say a name.');
+  };
+  try{session.start()}catch{
+   stopListening();hint.textContent=t('마이크 권한을 확인하고 다시 눌러 줘.','Check microphone permissions and try again.');
+  }
+ };
+ $('picker').addEventListener('close',stopListening);
+ window.addEventListener('pagehide',stopListening);
+ $('query').oninput=()=>{stopListening();choices()};
  $('query').onkeydown=e=>{if(e.key==='Enter')$('choices').querySelector('button')?.click()};
  $('practice').onclick=()=>{mode='practice';status('');renderSetup()};
  $('friends').onclick=()=>{mode='friends';status('');renderSetup()};
