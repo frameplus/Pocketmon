@@ -1,0 +1,14 @@
+#henry-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: #102444;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+#henry-intro img { width: 100%; height: 100%; object-fit: contain; }

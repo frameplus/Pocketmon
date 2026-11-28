@@ -1,0 +1,12 @@
+{
+  "name": "Henry’s Pokémon Game",
+  "short_name": "Henry’s Game",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#102444",
+  "theme_color": "#102444",
+  "icons": [
+    {"src": "/henry-192.png", "type": "image/png", "sizes": "192x192"},
+    {"src": "/henry-512.png", "type": "image/png", "sizes": "512x512"}
+  ]
+}

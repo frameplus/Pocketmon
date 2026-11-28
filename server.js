@@ -2,7 +2,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
 const pub=path.join(__dirname,'public'),d=JSON.parse(fs.readFileSync(path.join(pub,'dex.json'))),by=new Map(d.pokemon.map(p=>[p.id,p]));
 const simulator=require('./simulator.js').makeSimulator(d),forecast=require('./forecasts.js').createForecasts();
 const answer=require('./friend.js')(d,forecast);
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.png':'image/png','.webp':'image/webp','.wav':'audio/wav','.gif':'image/gif','.wasm':'application/wasm','.glb':'model/gltf-binary','.woff2':'font/woff2','.json':'application/json; charset=utf-8'};
+const mime={'.jpg':'image/jpeg','.webmanifest':'application/manifest+json','.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.png':'image/png','.webp':'image/webp','.wav':'audio/wav','.gif':'image/gif','.wasm':'application/wasm','.glb':'model/gltf-binary','.woff2':'font/woff2','.json':'application/json; charset=utf-8'};
 const visitDir=process.env.RAILWAY_VOLUME_MOUNT_PATH || (process.env.RAILWAY_ENVIRONMENT_ID?'/data':require('node:os').tmpdir());
 fs.mkdirSync(visitDir,{recursive:true});
 const visitors=require('./visitors.js').openCounter(path.join(visitDir,'pocketmon-visits.sqlite'));
